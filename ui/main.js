@@ -1,8 +1,8 @@
 // Entry point: wires the UI modules together.
 //   controls change state → run() simulates → charts, readouts and heli view redraw.
 
-import { simulate, computeMetrics, sampleIndex, PRESETS } from '../sim/index.js';
-import { state, simParams, SHOW_PRE } from './state.js';
+import { simulate, computeMetrics, computeStopMetrics, sampleIndex } from '../sim/index.js';
+import { state, simParams, gainsLabel, SHOW_PRE } from './state.js';
 import { readTheme, onThemeChange } from './theme.js';
 import { $, clamp } from './util.js';
 import { initControls } from './controls.js';
@@ -30,7 +30,9 @@ function showAt(t, hoverKey = null) {
 function run() {
   res = simulate(simParams());
   updateCharts(res, pins.pins);
-  updateReadouts(computeMetrics(res), state.thetaMax);
+  // A rate controller doesn't aim for the integrated stick angle of a piro, so hide those tiles.
+  const tracking = state.scenario !== 'piro';
+  updateReadouts(computeMetrics(res), computeStopMetrics(res), state.thetaMax, tracking);
   playback.t = clamp(playback.t, -SHOW_PRE, state.duration);
   showAt(playback.t);
 }
@@ -39,12 +41,6 @@ function scheduleRun() {
   if (runQueued) return;
   runQueued = true;
   requestAnimationFrame(() => { runQueued = false; run(); });
-}
-
-function gainsLabel() {
-  let s = `Kp ${state.kp} · Ki ${state.ki} · Kd ${state.kd}`;
-  if (state.step !== 45) s += ` · ${state.step}° step`;
-  return s;
 }
 
 // ---- build
@@ -58,7 +54,7 @@ const chartHandlers = {
 const heli = createHeliView($('heli'), () => showAt(playback.t));
 const playback = createPlayback({
   button: $('play'),
-  speedButtons: [...document.querySelectorAll('.seg-btn')],
+  speedButtons: [...document.querySelectorAll('.speed-btn')],
   start: () => -SHOW_PRE,
   end: () => state.duration,
   onFrame: (t) => showAt(t),
@@ -70,7 +66,7 @@ const pins = createPins({
   },
   onChange: () => res && updateCharts(res, pins.pins),
 });
-const controls = initControls({ onChange: scheduleRun });
+initControls({ onChange: scheduleRun }); // gains start at Rotorflight stock values; the Stock preset highlights itself
 
 if (!window.Chart) {
   document.querySelector('.main').insertAdjacentHTML('afterbegin',
@@ -78,7 +74,6 @@ if (!window.Chart) {
 } else {
   createCharts(chartHandlers);
   pins.render();
-  controls.applyPreset(PRESETS.find((p) => p.id === 'good'));
   run();
 
   onThemeChange(() => {

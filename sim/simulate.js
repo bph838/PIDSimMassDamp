@@ -1,32 +1,34 @@
-// Scenario runner: pre-roll at setpoint 0, step the setpoint at t = 0, record traces.
+// Scenario runner: pre-roll in hover, then the pilot input (stick flick or piro)
+// at t = 0; record traces for plotting and metrics.
 
 import { DEFAULTS } from './defaults.js';
 import { makeGaussian } from './noise.js';
-import { createPid, clamp } from './pid.js';
-import { createHeli, trimPitch, hoverEquilibrium } from './heli.js';
+import { clamp } from './util.js';
+import { createHeli, trimPitch } from './heli.js';
+import { stickProfile, collectiveProfile } from './scenario.js';
+import { createRotorflightYawPid } from './rotorflight/yawPid.js';
 
-const TRACES = ['t', 'psi', 'sp', 'rate', 'cmd', 'theta', 'p', 'i', 'd', 'dist'];
+const TRACES = ['t', 'psi', 'sp', 'rate', 'rateSp', 'cmd', 'theta', 'p', 'i', 'd', 'f', 'dist'];
 
 /**
  * Run one complete scenario. Returns sampled traces (t >= -showPreroll) as
- * Float32Arrays, plus summary stats over the post-step window.
+ * Float32Arrays, plus summary stats over the post-input window.
  */
 export function simulate(params) {
   const p = { ...DEFAULTS, ...params };
   const dt = p.dt;
   const ctrlEvery = Math.max(1, Math.round(1 / (p.loopRate * dt)));
   const recEvery = Math.max(1, Math.round(p.recordDt / dt));
-  const baseTorque = p.mainTorque ? p.Dmain : 0;
-  const trim = trimPitch(baseTorque, p.A);
+  const stick = stickProfile(p);
+  const coll = collectiveProfile(p);
+  const trim = trimPitch(coll.torque(coll.hover), p.A);
   const gauss = makeGaussian(p.seed);
 
-  const eq = hoverEquilibrium(p, trim) || { psi: 0, theta: 0, integ: 0 };
-  const heli = createHeli(p, dt, { psi: eq.psi, r: 0, theta: eq.theta });
-  const pid = createPid(
-    { kp: p.kp, ki: p.ki, kd: p.kd, outMax: p.thetaMax, dCutoff: p.dCutoff, dOnError: p.dOnError, antiWindup: p.antiWindup },
-    ctrlEvery * dt,
-    { integ: eq.integ, meas: eq.psi, sp: 0 },
-  );
+  // Controller, started in hover. With I = 0 (rate mode) the tail can't hold trim
+  // and starts unbalanced; if trim is beyond the tail limit it starts at 0.
+  const pid = createRotorflightYawPid(p.rf, 1 / (ctrlEvery * dt), p.thetaMax);
+  const theta0 = trim <= p.thetaMax ? pid.initHover(trim, coll.hover) : 0;
+  const heli = createHeli(p, dt, { psi: 0, r: 0, theta: theta0 });
   const s = heli.state, u = pid.out;
 
   const tStart = -p.preroll;
@@ -41,13 +43,14 @@ export function simulate(params) {
 
   for (let n = 0; n <= nSteps; n++) {
     const t = tStart + n * dt;
-    const sp = t >= -1e-12 ? p.step : 0;
-    const punching = p.punch && t >= p.punchTime;
+    const sp = stick.heading(t);
+    const rateSp = stick.rate(t);
+    const c = coll.collective(t);
 
     // Controller tick
     if (n % ctrlEvery === 0) {
-      const meas = s.psi + (p.noise > 0 ? p.noise * gauss() : 0);
-      pid.update(sp, meas);
+      const gyro = s.r + (p.rateNoise > 0 ? p.rateNoise * gauss() : 0);
+      pid.update(rateSp, gyro, c);
       if (t >= 0) {
         ticksAfter++;
         if (u.saturated) satTicks++;
@@ -57,15 +60,15 @@ export function simulate(params) {
 
     // Record (zero-order hold of the last controller outputs)
     if (t >= recStart - 1e-9 && k < nRec && n % recEvery === 0) {
-      out.t[k] = t; out.psi[k] = s.psi; out.sp[k] = sp; out.rate[k] = s.r;
+      out.t[k] = t; out.psi[k] = s.psi; out.sp[k] = sp; out.rate[k] = s.r; out.rateSp[k] = rateSp;
       out.cmd[k] = u.cmd; out.theta[k] = s.theta;
-      out.p[k] = u.P; out.i[k] = u.I; out.d[k] = u.D;
-      out.dist[k] = punching ? 1 : 0;
+      out.p[k] = u.P; out.i[k] = u.I; out.d[k] = u.D; out.f[k] = u.F;
+      out.dist[k] = c !== coll.hover ? 1 : 0;
       k++;
     }
     if (n === nSteps) break;
 
-    heli.step(u.cmd, baseTorque + (punching ? p.punchTorque : 0));
+    heli.step(u.cmd, coll.torque(c));
     if (t >= 0 && Math.abs(s.r) > peakRate) peakRate = Math.abs(s.r);
   }
 
@@ -74,6 +77,9 @@ export function simulate(params) {
   return {
     params: p,
     trim,
+    target: stick.target,     // final commanded heading (integral of the stick)
+    moveEnd: stick.moveEnd,   // when the stick returns to centre
+    collective: { hover: coll.hover, punch: coll.punch },
     ...out,
     stats: { peakCmd, satPct: ticksAfter ? (100 * satTicks) / ticksAfter : 0, peakRate },
   };

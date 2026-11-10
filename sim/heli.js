@@ -3,7 +3,7 @@
 //   yaw:    dr/dt = A*theta - torque - b*r,   dpsi/dt = r
 // Integrated with semi-implicit Euler (rate first, then heading with the new rate).
 
-import { clamp } from './pid.js';
+import { clamp } from './util.js';
 
 /**
  * @param cfg   { A, b, servoTau, servoRate }
@@ -29,15 +29,3 @@ export function createHeli(cfg, dt, init) {
 /** Tail pitch needed to cancel a steady main-rotor torque (deg). */
 export const trimPitch = (torque, A) => torque / A;
 
-/**
- * Hover equilibrium for given gains, so a run can start already settled.
- * With Ki > 0 the integrator carries the trim and the heading sits on target.
- * With Ki = 0 the heading settles where Kp * error supplies the trim
- * (the P-only steady-state error). Returns null if no equilibrium exists.
- */
-export function hoverEquilibrium({ kp, ki, thetaMax }, trim) {
-  if (trim > thetaMax) return null;
-  if (ki > 0) return { psi: 0, theta: trim, integ: trim };
-  if (kp > 0) return { psi: -trim / kp, theta: trim, integ: 0 };
-  return null;
-}

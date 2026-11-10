@@ -1,21 +1,26 @@
-// Gain presets, each picked to show one behaviour clearly with a 45° step.
+// Presets for the Rotorflight yaw controller, each picked to show one behaviour clearly.
 // Verified with `node test.js` — update the checks there if you change these.
+//
+// Gains are in Rotorflight's own units. `rf` is a complete profile: stock values
+// plus the preset's changes. Optional `scenario`, `punch` and `rateNoise` are applied too.
+
+import { RF_YAW_DEFAULTS } from './rotorflight/yawPid.js';
+
+const rf = (changes) => ({ ...RF_YAW_DEFAULTS, ...changes });
 
 export const PRESETS = [
-  // Kp 1 still swings +-10° at 4 s; 0.5 calms down sooner and the 10° offset is obvious.
-  { id: 'p', name: 'P only', kp: 0.5, ki: 0, kd: 0,
-    blurb: 'Overshoots ~45%, rings, then settles about 10° short: the main-rotor torque needs a constant error to hold +5° of tail pitch (5° / Kp).' },
-  // Ki 2 (with Kp 1) is past the stability limit (Ki < ~0.7 Kp with servo lag): it limit-cycles forever.
-  { id: 'pi', name: 'PI', kp: 0.5, ki: 0.3, kd: 0,
-    blurb: 'P only plus a little I: the offset slowly disappears (mean heading creeps onto 45°), but with no D it rings for seconds. Try duration 10 s.' },
-  { id: 'pd', name: 'PD', kp: 1, ki: 0, kd: 0.1,
-    blurb: 'D damps the overshoot nicely, but without I it still settles short of the target.' },
-  { id: 'good', name: 'Good PID', kp: 2, ki: 3, kd: 0.2,
-    blurb: 'About 10% overshoot and settled on target in under a second.' },
-  { id: 'hiP', name: 'Too much P', kp: 5, ki: 3, kd: 0.15,
-    blurb: 'Fast, but the tail slams into its limits and the heading rings.' },
-  { id: 'hiI', name: 'Too much I', kp: 1.5, ki: 15, kd: 0.15,
-    blurb: 'The integrator charges up during the move: big overshoot, then a slow wallowing oscillation that never dies out (this much I is past the stability limit).' },
-  { id: 'hiD', name: 'Too much D', kp: 1.5, ki: 3, kd: 0.8, noise: 0.02,
-    blurb: 'Over-damped: the turn crawls, the I term builds up and overshoots slowly, and D turns gyro noise into tail chatter. (Also switches on 0.02° gyro noise.)' },
+  { id: 'stock', name: 'Stock', rf: rf({}), scenario: 'piro',
+    blurb: 'Rotorflight defaults (P 80, I 120, D 10, stop gains 120/80). Stopping a 360°/s piro takes ~0.75 s, carries on ~40° and bounces back ~17°.' },
+  { id: 'community', name: 'Community', rf: rf({ P: 120, I: 180, D: 20, cwStopGain: 180, ccwStopGain: 165 }), scenario: 'piro',
+    blurb: 'A typical community tail tune (P 120, I 180, D 20, stop gains 180/165). Crisp stop: ~0.34 s with only ~3° of bounce-back.' },
+  { id: 'soft', name: 'Soft stops', rf: rf({ cwStopGain: 50, ccwStopGain: 50 }), scenario: 'piro',
+    blurb: 'Stop gains cut to 50: P is halved during stops, so the tail lets go late, overshoots and bounces back ~28° with a wobble.' },
+  { id: 'rateMode', name: 'Rate mode (I = 0)', rf: rf({ I: 0 }), scenario: 'flick',
+    blurb: 'No I term: the tail only damps yaw rate, it has no heading hold. Main-rotor torque makes the heli drift steadily.' },
+  { id: 'hiI', name: 'Too much I', rf: rf({ I: 700 }), scenario: 'flick',
+    blurb: 'I 700: a tail wag (~3–4 Hz) that never dies out. Rotorflight docs: raise I if the tail drifts, lower it if it wags.' },
+  { id: 'noPrecomp', name: 'Precomp off', rf: rf({ collectiveFF: 0 }), scenario: 'flick', punch: true,
+    blurb: 'Collective FF 0, with a collective punch at 2 s: the torque kick yaws the heli ~2.4° until I catches up. Set it back to 60 and the kick drops to ~0.6°.' },
+  { id: 'noisyD', name: 'Noisy D', rf: rf({ D: 60 }), scenario: 'flick', rateNoise: 5,
+    blurb: 'D 60 with 5°/s of gyro noise: D acts on yaw acceleration, so it turns noise into tail chatter. (Also switches on gyro noise.)' },
 ];

@@ -2,5 +2,9 @@
   "name": "heli-yaw-pid-sim",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node test.js", "start": "npx serve ." }
+  "scripts": {
+    "test": "node test.js",
+    "start": "npx serve ."
+  },
+  "license": "GPL-3.0-or-later"
 }

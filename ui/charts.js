@@ -1,7 +1,7 @@
-// The three time-series charts (heading, tail pitch, P/I/D), their playhead and hover tooltips.
+// The time-series charts (heading, yaw rate, tail pitch, P/I/D/F), their playhead and hover tooltips.
 // Uses the global `Chart` from the Chart.js UMD build loaded in index.html.
 
-import { SETTLE_BAND } from '../sim/index.js';
+import { settleBand } from '../sim/index.js';
 import { state, SHOW_PRE } from './state.js';
 import { T, PIN_SLOTS, withAlpha } from './theme.js';
 import { $, clamp, signed } from './util.js';
@@ -68,7 +68,7 @@ function baseOptions(yTitle, showXTitle) {
         type: 'linear', min: -SHOW_PRE, max: state.duration,
         grid: { color: T.grid }, border: { color: T.axis },
         ticks: { color: T.muted, maxRotation: 0 },
-        title: { display: showXTitle, text: 'Time after step (s)', color: T.muted },
+        title: { display: showXTitle, text: 'Time (s)', color: T.muted },
       },
       y: {
         grid: { color: T.grid }, border: { color: T.axis },
@@ -93,13 +93,25 @@ export function createCharts(handlers) {
     data: {
       datasets: [
         lineDs('Heading', T.s1, { order: 0 }),
-        lineDs('Setpoint', T['ink-2'], { order: 1, borderWidth: 1.5, borderDash: [6, 4] }),
+        lineDs('Command', T['ink-2'], { order: 1, borderWidth: 1.5, borderDash: [6, 4] }),
         ...PIN_SLOTS.map((s, j) => lineDs('', withAlpha(T[s], 0.6), { order: 2 + j, borderWidth: 1.5 })),
         lineDs('', 'transparent', { order: 10, borderWidth: 0, noLegend: true }),
         lineDs('±2% band', T.band, { order: 11, borderWidth: 0, fill: '-1' }),
       ],
     },
     options: baseOptions('Heading (°)', false),
+    plugins: [markerPlugin],
+  });
+
+  charts.rate = new Chart($('c-rate'), {
+    type: 'line',
+    data: {
+      datasets: [
+        lineDs('Yaw rate', T.s1, { order: 0 }),
+        lineDs('Stick command', T['ink-2'], { order: 1, borderWidth: 1.5, borderDash: [6, 4] }),
+      ],
+    },
+    options: baseOptions('Rate (°/s)', false),
     plugins: [markerPlugin],
   });
 
@@ -125,6 +137,7 @@ export function createCharts(handlers) {
         lineDs('P', T.s1, { order: 0 }),
         lineDs('I', T.s2, { order: 1 }),
         lineDs('D', T.s3, { order: 2, borderWidth: 1.5 }),
+        lineDs('FF (F + B + precomp)', T.s4, { order: 3, borderWidth: 1.5 }),
       ],
     },
     options: baseOptions('Pitch (°)', true),
@@ -158,17 +171,23 @@ const hline = (y, x0, x1) => [{ x: x0, y }, { x: x1, y }];
 /** Redraw all charts from a simulate() result. `pins` is the 4-slot array of pinned runs. */
 export function updateCharts(res, pins) {
   const { t } = res;
-  const S = state.step, band = SETTLE_BAND * S, tm = state.thetaMax, x0 = -SHOW_PRE, x1 = state.duration;
+  const S = res.target, band = settleBand(S), tm = state.thetaMax, x0 = -SHOW_PRE, x1 = state.duration;
 
   const h = charts.heading.data.datasets;
   h[H_HEADING].data = xy(t, res.psi);
-  h[H_SETPOINT].data = [{ x: x0, y: 0 }, { x: 0, y: 0 }, { x: 0, y: S }, { x: x1, y: S }];
+  h[H_SETPOINT].data = xy(t, res.sp);
   pins.forEach((p, j) => {
     h[H_PIN0 + j].data = p ? p.data : [];
     h[H_PIN0 + j].label = p ? p.label : '';
   });
-  h[H_BAND_LO].data = hline(S - band, 0, x1);
-  h[H_BAND_HI].data = hline(S + band, 0, x1);
+  // Settling band around the final command, from when the stick is centred.
+  const bandStart = Math.min(res.moveEnd, x1);
+  h[H_BAND_LO].data = hline(S - band, bandStart, x1);
+  h[H_BAND_HI].data = hline(S + band, bandStart, x1);
+
+  const r = charts.rate.data.datasets;
+  r[0].data = xy(t, res.rate);
+  r[1].data = xy(t, res.rateSp);
 
   const pd = charts.pitch.data.datasets;
   pd[0].data = xy(t, res.cmd);
@@ -184,9 +203,10 @@ export function updateCharts(res, pins) {
   q[0].data = xy(t, res.p);
   q[1].data = xy(t, res.i);
   q[2].data = xy(t, res.d);
+  q[3].data = xy(t, res.f);
   // Keep the scale readable: a derivative kick can be thousands of degrees.
   let lo = 0, hi = 0;
-  for (const a of [res.p, res.i, res.d]) for (let i = 0; i < a.length; i++) { if (a[i] < lo) lo = a[i]; if (a[i] > hi) hi = a[i]; }
+  for (const a of [res.p, res.i, res.d, res.f]) for (let i = 0; i < a.length; i++) { if (a[i] < lo) lo = a[i]; if (a[i] > hi) hi = a[i]; }
   const lim = 4 * tm;
   const clipped = hi > lim || lo < -lim;
   charts.pid.options.scales.y.min = Math.max(-lim, Math.min(-1, lo * 1.08));
@@ -209,10 +229,11 @@ function tipRows(key, res, i) {
   const row = (color, name, v, unit = '°') =>
     `<div class="row"><span class="sw" style="background:${color}"></span>${name}<b>${signed(v)}${unit}</b></div>`;
   if (key === 'heading') {
-    return row(T.s1, 'Heading', res.psi[i]) + row(T['ink-2'], 'Setpoint', res.sp[i]) + row(T.muted, 'Yaw rate', res.rate[i], '°/s');
+    return row(T.s1, 'Heading', res.psi[i]) + row(T['ink-2'], 'Command', res.sp[i]);
   }
+  if (key === 'rate') return row(T.s1, 'Yaw rate', res.rate[i], '°/s') + row(T['ink-2'], 'Stick', res.rateSp[i], '°/s');
   if (key === 'pitch') return row(T.s1, 'Command', res.cmd[i]) + row(T.s2, 'Actual', res.theta[i]);
-  return row(T.s1, 'P', res.p[i]) + row(T.s2, 'I', res.i[i]) + row(T.s3, 'D', res.d[i]);
+  return row(T.s1, 'P', res.p[i]) + row(T.s2, 'I', res.i[i]) + row(T.s3, 'D', res.d[i]) + row(T.s4, 'FF', res.f[i]);
 }
 
 /** Move the playhead on every chart to time t (sample i); show a tooltip on `hoverKey`'s chart. */

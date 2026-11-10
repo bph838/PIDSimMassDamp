@@ -3,6 +3,7 @@
 export { DEFAULTS } from './defaults.js';
 export { PRESETS } from './presets.js';
 export { simulate, sampleIndex } from './simulate.js';
-export { computeMetrics, SETTLE_BAND } from './metrics.js';
-export { createPid } from './pid.js';
-export { createHeli, hoverEquilibrium, trimPitch } from './heli.js';
+export { computeMetrics, computeStopMetrics, settleBand, SETTLE_BAND } from './metrics.js';
+export { SCENARIOS, stickProfile, collectiveProfile } from './scenario.js';
+export { createHeli, trimPitch } from './heli.js';
+export { createRotorflightYawPid, RF_YAW_DEFAULTS, TAIL_DEG_PER_UNIT, COLLECTIVE_DEG_PER_UNIT } from './rotorflight/yawPid.js';

@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Heli Yaw PID Sim</title>
-  <meta name="description" content="RC helicopter yaw-axis PID step-response simulator">
+  <meta name="description" content="RC helicopter tail (yaw) simulator running a port of Rotorflight's yaw PID controller">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
     <h1>Heli Yaw PID Simulator</h1>
-    <p>Tail-rotor yaw loop of an RC helicopter. Change P, I and D and watch the shape of the 45° step response change.</p>
+    <p>Tail-rotor yaw loop of an RC helicopter, running Rotorflight's yaw controller. Change the gains and watch the response change.</p>
   </header>
 
   <main class="layout">
@@ -22,12 +22,24 @@
       </section>
 
       <section class="panel">
-        <h2>PID gains</h2>
-        <div id="grp-gains"></div>
+        <h2>Yaw PID (Rotorflight mode 3)</h2>
+        <p class="blurb small">Controls yaw <em>rate</em> from the stick: P damps rate error, I gives heading hold,
+          D acts on yaw acceleration. Gains are in Rotorflight's own units.</p>
+        <div id="grp-rfgains"></div>
+        <details class="sub-panel">
+          <summary>Advanced (filters, I-term)</summary>
+          <div id="grp-rfadv"></div>
+          <label class="check"><input type="checkbox" id="rf.itermRelax" checked> I-term relax <small>(untick: I tracks heading error during stick moves too)</small></label>
+        </details>
       </section>
 
       <section class="panel">
-        <h2>Step</h2>
+        <h2>Pilot input</h2>
+        <div class="seg seg-wide" id="scenario" role="group" aria-label="Test input">
+          <button class="seg-btn" data-scenario="flick">Stick flick</button>
+          <button class="seg-btn" data-scenario="piro">Piro &amp; stop</button>
+        </div>
+        <p class="blurb small" id="scenario-blurb"></p>
         <div id="grp-step"></div>
       </section>
 
@@ -37,8 +49,7 @@
       </section>
 
       <section class="panel">
-        <h2>Controller</h2>
-        <div id="grp-ctrl"></div>
+        <h2>Loop</h2>
         <label class="select-row">Loop rate
           <select id="loopRate">
             <option value="100">100 Hz</option>
@@ -48,14 +59,12 @@
             <option value="2000">2 kHz</option>
           </select>
         </label>
-        <label class="check"><input type="checkbox" id="antiWindup" checked> Anti-windup <small>(untick to see windup; try a 180° step)</small></label>
-        <label class="check"><input type="checkbox" id="dOnError"> Derivative on error <small>(shows derivative kick)</small></label>
       </section>
 
       <section class="panel">
         <h2>Disturbances</h2>
-        <label class="check"><input type="checkbox" id="mainTorque" checked> Main rotor torque <small>(320 °/s², needs +5° of tail)</small></label>
-        <label class="check"><input type="checkbox" id="punch"> Collective punch <small>(+192 °/s² of torque)</small></label>
+        <label class="check"><input type="checkbox" id="mainTorque" checked> Main rotor torque <small>(320 °/s² at hover, needs +5° of tail)</small></label>
+        <label class="check"><input type="checkbox" id="punch"> Collective punch <small>(6° → 9.3° collective, +192 °/s² of torque)</small></label>
         <div id="grp-dist"></div>
       </section>
 
@@ -70,11 +79,14 @@
 
       <details class="panel about">
         <summary>About the model</summary>
-        <p>dr/dt = A·θ − D<sub>main</sub> − b·r, dψ/dt = r with A = 64, b = 2 /s, D<sub>main</sub> = 320 °/s².
-          The tail servo follows the command with a first-order lag and a 1000 °/s slew limit.
-          Physics runs at 0.5 ms (semi-implicit Euler); the controller runs at the loop rate.</p>
-        <p>Each run starts settled at the hover equilibrium for the current gains, holds setpoint 0° for a 2 s pre-roll
-          (the last 0.5 s is plotted), then steps at t = 0.</p>
+        <p>dr/dt = A·θ − torque − b·r, dψ/dt = r with A = 64, b = 2 /s. Main-rotor torque is 320 °/s² at the 6° hover
+          collective and rises with collective² (induced drag). The tail servo follows the command with a first-order lag
+          and a 1000 °/s slew limit. Physics runs at 0.5 ms (semi-implicit Euler); the controller runs at the loop rate.</p>
+        <p>Each run starts settled at the hover equilibrium for the current gains, holds still for a 2 s pre-roll
+          (the last 0.5 s is plotted), then the pilot input starts at t = 0.</p>
+        <p>The controller is a port of <code>pidApplyYawMode3</code> and the yaw precomp from
+          <a href="https://github.com/rotorflight/rotorflight-firmware">Rotorflight</a> (GPL-3.0). Its output is converted
+          at 24° of tail pitch per unit, the configurator's tail scale.</p>
       </details>
     </aside>
 
@@ -85,41 +97,51 @@
           <div class="play-row">
             <button id="play" class="btn btn-primary">▶ Play</button>
             <div class="seg" role="group" aria-label="Playback speed">
-              <button class="seg-btn active" data-speed="1">1×</button>
-              <button class="seg-btn" data-speed="0.25">0.25×</button>
+              <button class="seg-btn speed-btn active" data-speed="1">1×</button>
+              <button class="seg-btn speed-btn" data-speed="0.25">0.25×</button>
             </div>
             <span id="playTime" class="play-time">t = 0.00 s</span>
           </div>
         </section>
 
         <section class="card readouts">
-          <h3>Step response</h3>
+          <h3>Response</h3>
           <div class="tiles">
-            <div class="tile" title="Heading just before the step. Non-zero means the loop can't hold the target against main-rotor torque."><span class="lbl">Before step</span><span class="val" id="m-pre"></span><span class="sub">heading at t = 0</span></div>
-            <div class="tile" title="Time to go from 10% to 90% of the way from the pre-step heading to the setpoint."><span class="lbl">Rise time</span><span class="val" id="m-rise"></span><span class="sub" id="m-rise-sub">10 → 90%</span></div>
-            <div class="tile" title="Peak heading beyond the setpoint, as % of the step size."><span class="lbl">Overshoot</span><span class="val" id="m-os"></span><span class="sub">of step size</span></div>
-            <div class="tile" title="Time after which the heading stays within ±2% of the step around the setpoint (and stays there for at least 0.3 s)."><span class="lbl">Settling time</span><span class="val" id="m-settle"></span><span class="sub">±2% band</span></div>
-            <div class="tile" title="Setpoint minus the mean heading over the last 0.5 s."><span class="lbl">Steady-state error</span><span class="val" id="m-sse"></span><span class="sub">mean of last 0.5 s</span></div>
-            <div class="tile" title="Largest tail pitch command after the step."><span class="lbl">Peak tail pitch</span><span class="val" id="m-peak"></span><span class="sub" id="m-peak-sub">commanded</span></div>
-            <div class="tile" title="Fraction of controller ticks after the step where the PID output hit ±θmax."><span class="lbl">Tail saturated</span><span class="val" id="m-sat"></span><span class="sub">of the time</span></div>
+            <div class="tile" title="Heading just before t = 0. Non-zero means the loop can't hold heading against main-rotor torque."><span class="lbl">Before input</span><span class="val" id="m-pre"></span><span class="sub">heading at t = 0</span></div>
+            <div class="tile track-tile" title="Time to go from 10% to 90% of the way from the starting heading to the commanded heading."><span class="lbl">Rise time</span><span class="val" id="m-rise"></span><span class="sub" id="m-rise-sub">10 → 90%</span></div>
+            <div class="tile track-tile" title="Peak heading beyond the commanded heading."><span class="lbl">Overshoot</span><span class="val" id="m-os"></span><span class="sub" id="m-os-sub">of commanded yaw</span></div>
+            <div class="tile track-tile" title="Time after which the heading stays within ±2% of the commanded yaw (at most ±2°) for at least 0.3 s."><span class="lbl">Settling time</span><span class="val" id="m-settle"></span><span class="sub" id="m-settle-sub">±2% band</span></div>
+            <div class="tile track-tile" title="Commanded heading minus the mean heading over the last 0.5 s."><span class="lbl">Steady-state error</span><span class="val" id="m-sse"></span><span class="sub">mean of last 0.5 s</span></div>
+            <div class="tile" title="Largest tail pitch command after t = 0."><span class="lbl">Peak tail pitch</span><span class="val" id="m-peak"></span><span class="sub" id="m-peak-sub">commanded</span></div>
+            <div class="tile" title="Fraction of controller ticks after t = 0 where the output hit ±θmax."><span class="lbl">Tail saturated</span><span class="val" id="m-sat"></span><span class="sub">of the time</span></div>
+            <div class="tile stop-tile" title="How far the heading carried on after the yaw stick was centred."><span class="lbl">Drift-on</span><span class="val" id="m-drift"></span><span class="sub" id="m-drift-sub">after stick centred</span></div>
+            <div class="tile stop-tile" title="How far the heading came back from its furthest point after the stick was centred."><span class="lbl">Bounce-back</span><span class="val" id="m-bounce"></span><span class="sub">after the stop</span></div>
+            <div class="tile stop-tile" title="Time from centring the stick until the yaw rate stays below 10 °/s."><span class="lbl">Stop time</span><span class="val" id="m-stop"></span><span class="sub">rate below 10 °/s</span></div>
           </div>
+          <p id="track-note" class="readout-blurb" hidden>Heading-tracking tiles are hidden: a rate controller doesn't try to reach the integrated stick angle of a piro. Judge the stop instead.</p>
           <p id="readout-blurb" class="readout-blurb"></p>
         </section>
       </div>
 
       <section class="card chart-card">
-        <div class="chart-head"><h3>Heading</h3><span class="chart-note">degrees · dashed = setpoint · shaded = ±2% settling band</span></div>
+        <div class="chart-head"><h3>Heading</h3><span class="chart-note">degrees · dashed = commanded heading · shaded = settling band</span></div>
         <div class="chart-wrap h-lg"><canvas id="c-heading"></canvas><div class="playhead"></div><div class="tip"></div></div>
+      </section>
+      <section class="card chart-card">
+        <div class="chart-head"><h3>Yaw rate</h3><span class="chart-note">degrees per second · dashed = stick rate command</span></div>
+        <div class="chart-wrap"><canvas id="c-rate"></canvas><div class="playhead"></div><div class="tip"></div></div>
       </section>
       <section class="card chart-card">
         <div class="chart-head"><h3>Tail pitch</h3><span class="chart-note">degrees · dashed = ±θmax limits · dotted = hover trim</span></div>
         <div class="chart-wrap"><canvas id="c-pitch"></canvas><div class="playhead"></div><div class="tip"></div></div>
       </section>
       <section class="card chart-card">
-        <div class="chart-head"><h3>P, I and D contributions</h3><span class="chart-note" id="pidNote">degrees of tail pitch</span></div>
+        <div class="chart-head"><h3>P, I, D and feedforward contributions</h3><span class="chart-note" id="pidNote">degrees of tail pitch</span></div>
         <div class="chart-wrap"><canvas id="c-pid"></canvas><div class="playhead"></div><div class="tip"></div></div>
       </section>
       <p class="hint">Hover a graph to scrub the helicopter view; click to park the playhead there.</p>
+      <p class="hint">Yaw controller ported from <a href="https://github.com/rotorflight/rotorflight-firmware">rotorflight-firmware</a>,
+        GPL-3.0-or-later. This project is licensed under the GPL-3.0 as well.</p>
     </div>
   </main>
 

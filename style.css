@@ -198,3 +198,13 @@ body {
   color: var(--ink);
 }
 .file-warning code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+
+/* ---------- Rotorflight controls ---------- */
+[hidden] { display: none !important; }
+.blurb.small { min-height: 0; font-size: 12px; margin: 8px 0 10px; }
+.sub-panel { margin-top: 6px; border-top: 1px solid var(--border); padding-top: 8px; }
+.sub-panel summary { cursor: pointer; font-size: 13px; font-weight: 550; color: var(--ink-2); margin-bottom: 8px; }
+.seg-wide { display: flex; width: 100%; }
+.seg-wide .seg-btn { flex: 1; padding: 6px 4px; }
+.seg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.hint a, .about a { color: var(--s1); }

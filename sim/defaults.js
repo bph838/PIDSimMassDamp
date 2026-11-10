@@ -2,13 +2,17 @@
 // Units: degrees, seconds. Positive yaw = nose right (clockwise seen from above).
 
 export const DEFAULTS = Object.freeze({
-  // PID gains (output: tail pitch in degrees per degree of heading error)
-  kp: 2, ki: 3, kd: 0.2,
+  // Rotorflight yaw profile overrides (see RF_YAW_DEFAULTS in sim/rotorflight/yawPid.js)
+  rf: {},
 
-  // Scenario
-  step: 45,          // heading setpoint step at t = 0 (deg)
-  duration: 4,       // visible simulation time after the step (s)
-  preroll: 2,        // settle time before the step, setpoint 0 (s)
+  // Pilot input (see sim/scenario.js)
+  scenario: 'flick', // 'flick' | 'piro'
+  step: 45,          // flick angle (deg)
+  flickRate: 180,    // yaw stick rate command during a flick (deg/s)
+  piroRate: 360,     // yaw stick rate command during a piro (deg/s); negative = nose left
+  piroTime: 1.5,     // how long the piro stick is held (s)
+  duration: 4,       // visible simulation time after the input starts (s)
+  preroll: 2,        // settle time in hover before the input (s)
   showPreroll: 0.5,  // how much of the pre-roll to record for plotting (s)
 
   // Tail servo / actuator
@@ -16,25 +20,25 @@ export const DEFAULTS = Object.freeze({
   servoTau: 0.020,   // first-order lag (s)
   servoRate: 1000,   // slew limit (deg/s)
 
-  // Yaw dynamics: dr/dt = A*theta - D_main - b*r
+  // Yaw dynamics: dr/dt = A*theta - torque - b*r
   A: 64,             // yaw accel per degree of tail pitch (deg/s^2 per deg)
   b: 2,              // aerodynamic yaw damping (1/s)
-  Dmain: 320,        // main rotor torque (deg/s^2)
+  Dmain: 320,        // main rotor torque at hover collective (deg/s^2)
   mainTorque: true,  // set false to remove main rotor torque entirely
 
-  // Collective punch disturbance
+  // Collective and the punch disturbance (see collectiveProfile in sim/scenario.js)
+  hoverCollective: 6,          // deg
+  torquePerCollective2: 552.96, // induced-drag torque coefficient, deg/s^2 per (mixer unit)^2.
+                               // = A x 24 x 0.6^2, so Rotorflight's default collective FF (60) matches it.
   punch: false,
-  punchTime: 2,      // seconds after the step
-  punchTorque: 192,  // extra main-rotor torque (deg/s^2), ~3 deg of tail pitch
+  punchTime: 2,      // seconds after t = 0
+  punchTorque: 192,  // extra main-rotor torque (deg/s^2), ~3 deg of tail pitch (collective 6° -> ~9.3°)
 
-  // Controller details
-  loopRate: 1000,    // controller rate (Hz)
-  dCutoff: 40,       // D-term low-pass cutoff (Hz)
-  dOnError: false,   // false = derivative on measurement (no kick)
-  antiWindup: true,  // conditional integration while saturated
+  // Controller loop
+  loopRate: 1000,    // PID loop rate (Hz)
 
   // Sensor
-  noise: 0,          // gyro noise: Gaussian std-dev on measured heading (deg)
+  rateNoise: 0,      // Gaussian std-dev on measured yaw rate (deg/s)
   seed: 12345,       // RNG seed so the noise pattern is repeatable
 
   // Integration
