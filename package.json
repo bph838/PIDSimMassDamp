@@ -1,0 +1,6 @@
+{
+  "name": "heli-yaw-pid-sim",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node test.js", "start": "npx serve ." }
+}
