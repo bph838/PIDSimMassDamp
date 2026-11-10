@@ -6,4 +6,4 @@ export { simulate, sampleIndex } from './simulate.js';
 export { computeMetrics, computeStopMetrics, settleBand, SETTLE_BAND } from './metrics.js';
 export { SCENARIOS, stickProfile, collectiveProfile } from './scenario.js';
 export { createHeli, trimPitch } from './heli.js';
-export { createRotorflightYawPid, RF_YAW_DEFAULTS, TAIL_DEG_PER_UNIT, COLLECTIVE_DEG_PER_UNIT } from './rotorflight/yawPid.js';
+export { createRotorflightYawPid, RF_YAW_DEFAULTS, RF_YAW_LIMITS, TAIL_DEG_PER_UNIT, COLLECTIVE_DEG_PER_UNIT } from './rotorflight/yawPid.js';

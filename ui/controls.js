@@ -2,30 +2,36 @@
 // and preset buttons. Every change writes to `state` and calls onChange().
 // Keys like 'rf.P' address the Rotorflight yaw profile (see state.js).
 
-import { PRESETS, RF_YAW_DEFAULTS } from '../sim/index.js';
+import { PRESETS, RF_YAW_DEFAULTS, RF_YAW_LIMITS } from '../sim/index.js';
 import { state, getValue, setStateValue } from './state.js';
 import { $, clamp } from './util.js';
 
-// `show` decides visibility (default: always). Ranges are within the firmware's
-// valid ranges, narrowed to what's useful on this model.
+// `show` decides visibility (default: always).
+//
+// Rotorflight values use exactly the ranges Rotorflight accepts, as whole numbers
+// (RF_YAW_LIMITS in sim/rotorflight/yawPid.js).
+const rf = (k) => ({ min: RF_YAW_LIMITS[k][0], max: RF_YAW_LIMITS[k][1] });
 const SLIDERS = [
-  // Rotorflight gains (Rotorflight units)
-  { key: 'rf.P', group: 'rfgains', label: 'P', min: 0, max: 500, step: 1, hint: 'rate error (damping)' },
-  { key: 'rf.I', group: 'rfgains', label: 'I', min: 0, max: 800, step: 1, hint: 'heading hold' },
-  { key: 'rf.D', group: 'rfgains', label: 'D', min: 0, max: 100, step: 1, hint: 'yaw acceleration' },
-  { key: 'rf.F', group: 'rfgains', label: 'F', min: 0, max: 100, step: 1, hint: 'stick feedforward' },
-  { key: 'rf.B', group: 'rfgains', label: 'B', min: 0, max: 500, step: 1, hint: 'stick-rate boost' },
-  { key: 'rf.cwStopGain', group: 'rfgains', label: 'CW stop gain', unit: '%', min: 25, max: 250, step: 1, hint: 'tail pushing nose right' },
-  { key: 'rf.ccwStopGain', group: 'rfgains', label: 'CCW stop gain', unit: '%', min: 25, max: 250, step: 1, hint: 'tail pushing nose left' },
-  { key: 'rf.collectiveFF', group: 'rfgains', label: 'Collective FF', min: 0, max: 250, step: 1, hint: 'torque precomp' },
-  { key: 'rf.gyroCutoff', group: 'rfadv', label: 'Gyro cutoff', unit: 'Hz', min: 1, max: 250, step: 1 },
-  { key: 'rf.dtermCutoff', group: 'rfadv', label: 'D cutoff', unit: 'Hz', min: 1, max: 250, step: 1 },
-  { key: 'rf.btermCutoff', group: 'rfadv', label: 'B cutoff', unit: 'Hz', min: 1, max: 250, step: 1 },
-  { key: 'rf.itermRelaxLevel', group: 'rfadv', label: 'I relax level', unit: '°/s', min: 10, max: 250, step: 1 },
-  { key: 'rf.itermRelaxCutoff', group: 'rfadv', label: 'I relax cutoff', unit: 'Hz', min: 1, max: 100, step: 1 },
-  { key: 'rf.errorLimit', group: 'rfadv', label: 'Error limit', unit: '°', min: 0, max: 180, step: 1 },
-  { key: 'rf.errorDecayTime', group: 'rfadv', label: 'Error decay time', unit: '×0.1 s', min: 0, max: 250, step: 1, hint: '0 = off' },
-  { key: 'rf.precompCutoff', group: 'rfadv', label: 'Precomp cutoff', unit: 'Hz', min: 1, max: 250, step: 1 },
+  // Rotorflight gains (Rotorflight units). P/I/D/F/B: 0..PID_GAIN_MAX (1000).
+  { key: 'rf.P', group: 'rfgains', label: 'P', ...rf('P'), step: 1, hint: 'rate error (damping)' },
+  { key: 'rf.I', group: 'rfgains', label: 'I', ...rf('I'), step: 1, hint: 'heading hold' },
+  { key: 'rf.D', group: 'rfgains', label: 'D', ...rf('D'), step: 1, hint: 'yaw acceleration' },
+  { key: 'rf.F', group: 'rfgains', label: 'F', ...rf('F'), step: 1, hint: 'stick feedforward' },
+  { key: 'rf.B', group: 'rfgains', label: 'B', ...rf('B'), step: 1, hint: 'stick-rate boost' },
+  { key: 'rf.cwStopGain', group: 'rfgains', label: 'CW stop gain', unit: '%', ...rf('cwStopGain'), step: 1, hint: 'tail pushing nose right' },
+  { key: 'rf.ccwStopGain', group: 'rfgains', label: 'CCW stop gain', unit: '%', ...rf('ccwStopGain'), step: 1, hint: 'tail pushing nose left' },
+  { key: 'rf.collectiveFF', group: 'rfgains', label: 'Collective FF', ...rf('collectiveFF'), step: 1, hint: 'torque precomp' },
+  // Cutoffs: 0 = filter off (D/B cutoff 0 also switches that term off, as in the firmware).
+  { key: 'rf.gyroCutoff', group: 'rfadv', label: 'Gyro cutoff', unit: 'Hz', ...rf('gyroCutoff'), step: 1, hint: '0 = off' },
+  { key: 'rf.dtermCutoff', group: 'rfadv', label: 'D cutoff', unit: 'Hz', ...rf('dtermCutoff'), step: 1, hint: '0 = D off' },
+  { key: 'rf.btermCutoff', group: 'rfadv', label: 'B cutoff', unit: 'Hz', ...rf('btermCutoff'), step: 1, hint: '0 = B off' },
+  // iterm_relax_level is CLI-only; the firmware clamps it to 10..250.
+  { key: 'rf.itermRelaxLevel', group: 'rfadv', label: 'I relax level', unit: '°/s', ...rf('itermRelaxLevel'), step: 1, hint: 'CLI only' },
+  { key: 'rf.itermRelaxCutoff', group: 'rfadv', label: 'I relax cutoff', unit: 'Hz', ...rf('itermRelaxCutoff'), step: 1 },
+  { key: 'rf.errorLimit', group: 'rfadv', label: 'Error limit', unit: '°', ...rf('errorLimit'), step: 1 },
+  // error_decay_time_yaw is CLI-only.
+  { key: 'rf.errorDecayTime', group: 'rfadv', label: 'Error decay time', unit: '×0.1 s', ...rf('errorDecayTime'), step: 1, hint: '0 = off · CLI only' },
+  { key: 'rf.precompCutoff', group: 'rfadv', label: 'Precomp cutoff', unit: 'Hz', ...rf('precompCutoff'), step: 1, hint: '0 = off' },
 
   // pilot input
   { key: 'step', group: 'step', label: 'Yaw angle', unit: '°', min: 10, max: 180, step: 1, show: () => state.scenario === 'flick' },
@@ -52,6 +58,8 @@ export function initControls({ onChange }) {
   const controls = {};
   const decimals = (s) => (String(s.step).split('.')[1] || '').length;
   const fmt = (key, v) => Number(v).toFixed(decimals(controls[key].spec));
+  // Round to the slider step (whole numbers for every Rotorflight value).
+  const snap = (v, s) => +(s.min + Math.round((v - s.min) / s.step) * s.step).toFixed(decimals(s));
 
   // ---- sliders
   function buildSlider(s) {
@@ -68,7 +76,7 @@ export function initControls({ onChange }) {
     range.addEventListener('input', () => setValue(s.key, parseFloat(range.value), 'range'));
     num.addEventListener('input', () => {
       const v = parseFloat(num.value);
-      if (Number.isFinite(v)) setValue(s.key, clamp(v, +num.min, +num.max), 'num');
+      if (Number.isFinite(v)) setValue(s.key, snap(clamp(v, +num.min, +num.max), s), 'num');
     });
     num.addEventListener('change', () => { num.value = fmt(s.key, getValue(s.key)); });
   }

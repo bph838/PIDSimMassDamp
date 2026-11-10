@@ -1,7 +1,7 @@
 // test.js — headless checks for the sim/ package.  Run with:  node test.js
 import {
   simulate, computeMetrics, computeStopMetrics, PRESETS,
-  createRotorflightYawPid, RF_YAW_DEFAULTS,
+  createRotorflightYawPid, RF_YAW_DEFAULTS, RF_YAW_LIMITS,
 } from './sim/index.js';
 import { difFilter, firstOrderLPF, pt1Filter, transition } from './sim/rotorflight/filters.js';
 
@@ -80,6 +80,29 @@ console.log('\nRotorflight port: primitives');
   check('Mixer clamp holds output at the tail limit', Math.abs(cs.out.cmd - 5) < 1e-9 && cs.out.saturated, fmt(cs.out.cmd, 3));
   check('I term frozen while saturated (one tick of lag, then no growth)',
     Math.abs(iAfterFirst - 0.0005 * 120 * 0.5 * 24) < 1e-9 && cs.out.I === iAfterFirst, `${fmt(cs.out.I, 4)}° after 51 ticks`);
+}
+
+// ---------------------------------------------------------------- Rotorflight value ranges
+console.log('\nRotorflight value ranges');
+{
+  const bad = [];
+  const profiles = [['defaults', RF_YAW_DEFAULTS], ...PRESETS.map((p) => [p.name, p.rf])];
+  for (const [name, prof] of profiles) {
+    for (const [k, [lo, hi]] of Object.entries(RF_YAW_LIMITS)) {
+      const v = prof[k];
+      if (!Number.isInteger(v) || v < lo || v > hi) bad.push(`${name}.${k}=${v} (allowed ${lo}..${hi})`);
+    }
+  }
+  check('Defaults and every preset are whole numbers inside Rotorflight’s limits', bad.length === 0, bad.join('; '));
+  check('Every numeric profile value has a limit', Object.keys(RF_YAW_DEFAULTS)
+    .filter((k) => typeof RF_YAW_DEFAULTS[k] === 'number').every((k) => k in RF_YAW_LIMITS));
+  // Extremes must still simulate: cutoffs at 0 (filters off), and everything at its maximum.
+  const finite = (r) => r.psi.every(Number.isFinite) && r.cmd.every(Number.isFinite);
+  const zeroCut = { ...RF_YAW_DEFAULTS, gyroCutoff: 0, dtermCutoff: 0, btermCutoff: 0, precompCutoff: 0 };
+  check('Cutoffs at 0 (filters off) run cleanly', finite(simulate({ rf: zeroCut })) && finite(simulate({ scenario: 'piro', rf: zeroCut })));
+  const maxed = { ...RF_YAW_DEFAULTS };
+  for (const [k, [, hi]] of Object.entries(RF_YAW_LIMITS)) maxed[k] = hi;
+  check('Every value at its Rotorflight maximum runs cleanly', finite(simulate({ rf: maxed })) && finite(simulate({ scenario: 'piro', rf: maxed })));
 }
 
 // ---------------------------------------------------------------- presets
