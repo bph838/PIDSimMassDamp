@@ -119,8 +119,8 @@ export function initControls({ onChange }) {
 
   function applyPreset(p) {
     state.rf = { ...RF_YAW_DEFAULTS, ...p.rf };
+    // Presets never change the pilot input; `p.scenario` only records what the description refers to.
     if (p.rateNoise !== undefined) state.rateNoise = p.rateNoise;
-    if (p.scenario) state.scenario = p.scenario;
     if (p.punch !== undefined) state.punch = p.punch;
     refresh();
     onChange();

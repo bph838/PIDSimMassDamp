@@ -25,12 +25,17 @@ export function createPlayback({ button, speedButtons, start, end, onFrame }) {
     if (playing) requestAnimationFrame(tick);
   }
 
-  button.addEventListener('click', () => {
-    if (playing) { setPlaying(false); onFrame(t); return; }
-    if (t >= end() - 1e-3) t = start(); // restart from the beginning when at the end
+  function play() {
+    if (playing) return;
     setPlaying(true);
     lastTs = performance.now();
     requestAnimationFrame(tick);
+  }
+
+  button.addEventListener('click', () => {
+    if (playing) { setPlaying(false); onFrame(t); return; }
+    if (t >= end() - 1e-3) t = start(); // restart from the beginning when at the end
+    play();
   });
 
   speedButtons.forEach((b) => b.addEventListener('click', () => {
@@ -39,6 +44,12 @@ export function createPlayback({ button, speedButtons, start, end, onFrame }) {
   }));
 
   return {
+    /** Jump to time v and play from there (keeps playing if already running). */
+    playFrom(v) {
+      t = Math.min(Math.max(v, start()), end());
+      onFrame(t);
+      play();
+    },
     get playing() { return playing; },
     get rotorAngle() { return rotorAngle; },
     get t() { return t; },

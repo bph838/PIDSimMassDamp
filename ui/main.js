@@ -23,7 +23,8 @@ function showAt(t, hoverKey = null) {
     { psi: res.psi[i], sp: res.sp[i], theta: res.theta[i] },
     { rotorAngle: playback.rotorAngle, spinning: playback.playing },
   );
-  $('playTime').textContent = `t = ${res.t[i].toFixed(2)} s`;
+  const shown = Math.abs(res.t[i]) < 0.005 ? 0 : res.t[i]; // avoid "-0.00"
+  $('playTime').textContent = `t = ${shown.toFixed(2)} s`;
 }
 
 // ---- simulate + redraw; coalesced to one run per animation frame
@@ -48,7 +49,7 @@ readTheme();
 const chartHandlers = {
   onHover: (t, key) => { if (!playback.playing) showAt(t, key); },
   onLeave: () => { if (!playback.playing) showAt(playback.t); },
-  onClick: (t, key) => { if (!playback.playing) { playback.t = t; showAt(t, key); } },
+  onClick: (t) => playback.playFrom(t),
 };
 
 const heli = createHeliView($('heli'), () => showAt(playback.t));
