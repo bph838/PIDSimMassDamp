@@ -51,7 +51,7 @@ To add a new control: add the field to `ui/state.js` (and `simParams()`), add a 
 - Physics step 0.5 ms (semi-implicit Euler). The controller runs at the loop rate (1 kHz by default).
 - Each run starts at the hover equilibrium for the current gains and holds still for a 2 s pre-roll, then the pilot input starts at t = 0. The last 0.5 s of the pre-roll is plotted.
 - Pilot inputs:
-  - **Stick flick:** the yaw stick is held at a rate until the commanded heading has moved the yaw angle, then centred.
+  - **Stick flick (a 90° turn by default):** the pilot holds the yaw stick at the stick rate (360°/s) and centres it a little early, when heading + rate × *let go early* (0.1 s) reaches the yaw angle, to allow for the stop. That's how a real pilot flies a turn. A timed flick can't work here: the tail can't follow a 0.25 s stick, and Rotorflight deliberately doesn't chase the lost heading.
   - **Piro & stop:** the stick is held at the piro rate, then centred.
 - Both inputs report stop metrics measured after the stick is centred: drift-on, bounce-back and stop time. For a piro, the heading-tracking tiles (overshoot, steady-state error and so on) are hidden, because a rate controller doesn't try to reach the integrated stick angle.
 
@@ -68,7 +68,7 @@ To add a new control: add the field to `ui/state.js` (and `simParams()`), add a 
 
 ## Presets
 
-Numbers are for a 360°/s piro held for 1.5 s, or the default flick (90° at 360°/s). Presets change the gains only, never the pilot input. "Stop" values are measured after the stick is centred.
+Numbers are for a 360°/s piro held for 1.5 s, or the default 90° turn. Presets change the gains only, never the pilot input. "Stop" values are measured after the stick is centred.
 
 | Preset | Changes from stock | What you should see |
 |---|---|---|
@@ -83,8 +83,8 @@ Numbers are for a 360°/s piro held for 1.5 s, or the default flick (90° at 360
 ### Things to try
 
 - **Stop gains:** pin Stock, then try Community and Soft stops on the same piro to compare the stops side by side.
-- **Tail authority:** the default flick (90° at 360°/s, so the stick is held for only 0.25 s) is faster than this tail can follow. The heli reaches about 236°/s and turns only about 41°. A rate controller doesn't chase the missing angle. Slow the stick rate to 180°/s and it turns close to the full 90°.
-- **I-term relax** (under *Advanced*): even on a gentle flick (45° at 180°/s) the heli holds a few degrees short of the stick angle, because relax stops I from accumulating heading error while the stick is moving. Untick it and the flick finishes with less overshoot but further from the stick angle.
+- **The 90° turn:** with Community the heli peaks at 90.6° and settles at 87°. Stock overshoots to 96° and bounces back to 82°: its soft stop shows up as a missed heading. Change *let go early* to see how the pilot's timing interacts with the tune.
+- **I-term relax** (under *Advanced*): relax stops I from accumulating heading error while the stick is moving, so the heli holds wherever it ends up after the stop. On a gentle 45° turn at 180°/s it holds about 4° short. Untick it and the overshoot goes away.
 - **Collective FF:** turn on the collective punch and sweep collective FF from 0 to 100. The kick disappears around 60, and above that it overcompensates.
 - **θmax ≈ 6°:** with only 1° of authority above trim, a piro is capped at about 32 °/s, the physical limit.
 - **There's no "Too much P" preset.** Very high P doesn't oscillate on this model, which lacks the fast tail dynamics that cause it on a real helicopter.

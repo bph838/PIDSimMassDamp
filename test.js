@@ -137,10 +137,18 @@ console.log('\nSanity checks');
 {
   const m = computeMetrics(simulate({ scenario: 'flick' }));
   check('Stock flick: starts level at hover (I carries the trim)', Math.abs(m.psi0) < 0.01, `psi0 = ${fmt(m.psi0, 4)}`);
-  // The default flick (90° at 360°/s, stick held 0.25 s) is faster than this tail can follow
-  // (~236°/s at release), and a rate controller doesn't chase the missing angle.
-  check('Default flick: heli turns well short of the stick angle (tail-authority limited)', m.ssError > 30,
-    `${fmt(m.ssError, 1)}° short of ${fmt(m.target, 0)}°`);
+}
+{
+  // Default 90° turn: the pilot holds 360°/s and lets go 0.1 s early to allow for the stop.
+  const peak = (r) => { let pk = -Infinity; for (const v of r.psi) pk = Math.max(pk, v); return pk; };
+  const comm = simulate({ scenario: 'flick', rf: PRESETS.find((p) => p.id === 'community').rf });
+  const stock = simulate({ scenario: 'flick' });
+  check('90° turn: pilot lets go before the heli reaches 90°', comm.moveEnd > 0 && comm.psi[Math.round((comm.moveEnd - comm.t[0]) / 0.001)] < 90,
+    `released at ${fmt(comm.moveEnd, 2)} s`);
+  check('90° turn: Community tune peaks within ±2° of 90°', Math.abs(peak(comm) - 90) < 2, `peak ${fmt(peak(comm), 1)}°`);
+  check('90° turn: Community settles within 5° of 90°', Math.abs(computeMetrics(comm).ssError) < 5, `${fmt(90 - computeMetrics(comm).ssError, 1)}°`);
+  check('90° turn: Stock overshoots further, then bounces back below Community', peak(stock) > peak(comm) + 3 &&
+    computeMetrics(stock).ssError > computeMetrics(comm).ssError, `peak ${fmt(peak(stock), 1)}°, settles ${fmt(90 - computeMetrics(stock).ssError, 1)}°`);
 }
 {
   // I-term relax, on a flick gentle enough that the heli keeps up (45° at 180°/s).

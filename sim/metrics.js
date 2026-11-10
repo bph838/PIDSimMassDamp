@@ -66,7 +66,7 @@ const STOPPED_RATE = 10; // deg/s: below this the heli counts as stopped
  *   stopTime       time from release until |rate| stays below 10 deg/s (s), null if never
  */
 export function computeStopMetrics(res) {
-  if (!(res.moveEnd > 0)) return null;
+  if (!(res.moveEnd > 0)) return null; // stick never centred
   const { t, psi, rate } = res;
   const n = t.length;
   let iC = 0;

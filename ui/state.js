@@ -12,7 +12,7 @@ export const state = {
   rateNoise: 0,
 
   // pilot input
-  step: 90, flickRate: 360, piroRate: 360, piroTime: 1.5, duration: 4,
+  step: 90, flickRate: 360, pilotLead: 0.1, piroRate: 360, piroTime: 1.5, duration: 4,
 
   // heli and loop
   thetaMax: 25, servoTauMs: 20, loopRate: 1000,
@@ -35,7 +35,8 @@ export function simParams() {
   return {
     scenario: state.scenario,
     rf: { ...state.rf },
-    step: state.step, flickRate: state.flickRate, piroRate: state.piroRate, piroTime: state.piroTime,
+    step: state.step, flickRate: state.flickRate, pilotLead: state.pilotLead,
+    piroRate: state.piroRate, piroTime: state.piroTime,
     duration: state.duration, showPreroll: SHOW_PRE,
     thetaMax: state.thetaMax, servoTau: state.servoTauMs / 1000, loopRate: state.loopRate,
     mainTorque: state.mainTorque, punch: state.punch, punchTime: state.punchTime,

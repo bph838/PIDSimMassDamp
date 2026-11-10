@@ -1,4 +1,4 @@
-// Scenario runner: pre-roll in hover, then the pilot input (stick flick or piro)
+// Scenario runner: pre-roll in hover, then the pilot input (90° turn or piro)
 // at t = 0; record traces for plotting and metrics.
 
 import { DEFAULTS } from './defaults.js';
@@ -44,7 +44,7 @@ export function simulate(params) {
   for (let n = 0; n <= nSteps; n++) {
     const t = tStart + n * dt;
     const sp = stick.heading(t);
-    const rateSp = stick.rate(t);
+    const rateSp = stick.rate(t, s.psi, s.r);
     const c = coll.collective(t);
 
     // Controller tick
@@ -77,8 +77,8 @@ export function simulate(params) {
   return {
     params: p,
     trim,
-    target: stick.target,     // final commanded heading (integral of the stick)
-    moveEnd: stick.moveEnd,   // when the stick returns to centre
+    target: stick.target,     // final commanded heading: the turn angle (flick) or stick integral (piro)
+    moveEnd: stick.moveEnd,   // when the stick returned to centre (null if it never did)
     collective: { hover: coll.hover, punch: coll.punch },
     ...out,
     stats: { peakCmd, satPct: ticksAfter ? (100 * satTicks) / ticksAfter : 0, peakRate },

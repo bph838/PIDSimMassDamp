@@ -1,5 +1,7 @@
 // Pilot inputs over time: what the sticks command during a run.
-//   flick  yaw stick held at `flickRate` until the heading command has moved `step` degrees
+//   flick  turn by `step` degrees: the pilot holds the yaw stick at `flickRate` and
+//          centres it when heading + rate × `pilotLead` reaches the target, i.e. lets
+//          go a little early to allow for the stop, as a real pilot does
 //   piro   yaw stick held at `piroRate` for `piroTime` seconds, then centred (piro and stop)
 // Collective: hover collective, stepping up at `punchTime` when the punch is on.
 
@@ -8,17 +10,35 @@ import { COLLECTIVE_DEG_PER_UNIT } from './rotorflight/yawPid.js';
 export const SCENARIOS = ['flick', 'piro'];
 
 /**
+ * The pilot's yaw stick. Call rate() once per physics step, in time order: the
+ * flick pilot watches the heli and decides when to let go.
  * @returns {
- *   rate(t)     yaw rate command (deg/s)
- *   heading(t)  commanded heading (deg): the integral of rate(t)
- *   moveEnd     time the stick returns to centre (s)
- *   target      final commanded heading (deg)
+ *   rate(t, psi, r)  yaw rate command (deg/s), given the current heading and yaw rate
+ *   heading(t)       commanded heading (deg): the turn target for a flick, the
+ *                    integral of the stick for a piro
+ *   target           final commanded heading (deg)
+ *   moveEnd          time the stick returned to centre (s); for a flick, known once
+ *                    the pilot has let go (null until then, or if they never do)
  * }
  */
 export function stickProfile(p) {
-  const flick = p.scenario === 'flick';
-  const rate = flick ? Math.abs(p.flickRate) * Math.sign(p.step || 1) : p.piroRate;
-  const T = flick ? Math.abs(p.step / p.flickRate) : p.piroTime;
+  if (p.scenario === 'flick') {
+    const dir = Math.sign(p.step) || 1;
+    const rate = Math.abs(p.flickRate) * dir;
+    const goal = Math.abs(p.step);
+    const stick = {
+      target: p.step,
+      moveEnd: null,
+      heading: (t) => (t >= 0 ? p.step : 0),
+      rate(t, psi, r) {
+        if (t < 0 || stick.moveEnd !== null) return 0;
+        if (dir * (psi + r * p.pilotLead) >= goal) { stick.moveEnd = t; return 0; }
+        return rate;
+      },
+    };
+    return stick;
+  }
+  const rate = p.piroRate, T = p.piroTime;
   return {
     rate: (t) => (t >= 0 && t < T ? rate : 0),
     heading: (t) => rate * Math.min(Math.max(t, 0), T),

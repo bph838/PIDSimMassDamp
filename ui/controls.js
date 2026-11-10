@@ -30,6 +30,7 @@ const SLIDERS = [
   // pilot input
   { key: 'step', group: 'step', label: 'Yaw angle', unit: '°', min: 10, max: 180, step: 1, show: () => state.scenario === 'flick' },
   { key: 'flickRate', group: 'step', label: 'Stick rate', unit: '°/s', min: 30, max: 720, step: 10, show: () => state.scenario === 'flick' },
+  { key: 'pilotLead', group: 'step', label: 'Let go early', unit: 's', min: 0, max: 0.3, step: 0.01, hint: 'pilot anticipation', show: () => state.scenario === 'flick' },
   { key: 'piroRate', group: 'step', label: 'Piro rate', unit: '°/s', min: -720, max: 720, step: 10, hint: '− = nose left', show: () => state.scenario === 'piro' },
   { key: 'piroTime', group: 'step', label: 'Piro time', unit: 's', min: 0.2, max: 4, step: 0.1, show: () => state.scenario === 'piro' },
   { key: 'duration', group: 'step', label: 'Duration', unit: 's', min: 1, max: 10, step: 0.5 },
@@ -43,7 +44,7 @@ const SLIDERS = [
 const CHECKBOXES = ['mainTorque', 'punch', 'rf.itermRelax'];
 
 const SCENARIO_BLURB = {
-  flick: 'The yaw stick is held at the stick rate until the commanded heading has moved by the yaw angle, then centred.',
+  flick: 'Turn by the yaw angle: the pilot holds the yaw stick at the stick rate and centres it a little early (heading + rate × "let go early" reaches the angle) to allow for the stop.',
   piro: 'Pirouette: the yaw stick is held at the piro rate, then centred. Watch the stop: drift-on, bounce-back, stop time.',
 };
 
