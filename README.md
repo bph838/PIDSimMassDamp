@@ -4,7 +4,8 @@ A browser simulator of an RC helicopter's tail (yaw axis), controlled by a port 
 
 ## Run it
 
-- **Serve the folder:** `npx serve .` (or `npm start`), then open the URL it prints. There's no build step. A server is needed because browsers block ES modules on `file://`, so double-clicking `index.html` won't work. Any static server works, for example `python -m http.server`.
+- **Serve the folder:** `npm start`, then open http://localhost:8642. There's no build step. A server is needed because browsers block ES modules on `file://`, so double-clicking `index.html` won't work. Any static server works, for example `python -m http.server`.
+- **Why port 8642:** other dev tools often run on `localhost:3000` and can leave a service worker there. A leftover service worker hijacks a normal refresh (F5) and shows a white page, while Ctrl+F5 works. A dedicated port avoids that. If it ever happens, open DevTools → Application → Storage → **Clear site data** for that address.
 - Chart.js loads from the jsDelivr CDN, so you need to be online.
 - Headless checks: `node test.js` (or `npm test`). This checks the ported code against values computed from the C source, runs every preset, prints a metrics table, and checks each preset's described behaviour plus some physics sanity checks.
 
