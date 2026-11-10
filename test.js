@@ -135,12 +135,20 @@ console.log('\nPreset behaviour');
 // ---------------------------------------------------------------- sanity checks
 console.log('\nSanity checks');
 {
-  const r = simulate({ scenario: 'flick' });
-  const m = computeMetrics(r);
+  const m = computeMetrics(simulate({ scenario: 'flick' }));
   check('Stock flick: starts level at hover (I carries the trim)', Math.abs(m.psi0) < 0.01, `psi0 = ${fmt(m.psi0, 4)}`);
-  check('Stock flick: I-term relax means it holds a few degrees short (1-5°)', m.ssError > 1 && m.ssError < 5, `${fmt(m.ssError, 2)}°`);
-  const noRelax = computeMetrics(simulate({ scenario: 'flick', rf: { ...RF_YAW_DEFAULTS, itermRelax: false } }));
-  check('Without I-term relax the flick overshoots less', noRelax.overshootDeg < m.overshootDeg,
+  // The default flick (90° at 360°/s, stick held 0.25 s) is faster than this tail can follow
+  // (~236°/s at release), and a rate controller doesn't chase the missing angle.
+  check('Default flick: heli turns well short of the stick angle (tail-authority limited)', m.ssError > 30,
+    `${fmt(m.ssError, 1)}° short of ${fmt(m.target, 0)}°`);
+}
+{
+  // I-term relax, on a flick gentle enough that the heli keeps up (45° at 180°/s).
+  const gentle = { scenario: 'flick', step: 45, flickRate: 180 };
+  const m = computeMetrics(simulate(gentle));
+  check('Gentle flick: I-term relax means it holds a few degrees short (1-5°)', m.ssError > 1 && m.ssError < 5, `${fmt(m.ssError, 2)}°`);
+  const noRelax = computeMetrics(simulate({ ...gentle, rf: { ...RF_YAW_DEFAULTS, itermRelax: false } }));
+  check('Gentle flick: without I-term relax it overshoots less', noRelax.overshootDeg < m.overshootDeg,
     `${fmt(noRelax.overshootDeg, 1)}° vs ${fmt(m.overshootDeg, 1)}°`);
 }
 {

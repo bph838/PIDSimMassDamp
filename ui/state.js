@@ -12,7 +12,7 @@ export const state = {
   rateNoise: 0,
 
   // pilot input
-  step: 45, flickRate: 180, piroRate: 360, piroTime: 1.5, duration: 4,
+  step: 90, flickRate: 360, piroRate: 360, piroTime: 1.5, duration: 4,
 
   // heli and loop
   thetaMax: 25, servoTauMs: 20, loopRate: 1000,
@@ -47,6 +47,6 @@ export function simParams() {
 export function gainsLabel() {
   let s = `P${state.rf.P} I${state.rf.I} D${state.rf.D} · stop ${state.rf.cwStopGain}/${state.rf.ccwStopGain}`;
   if (state.scenario === 'piro') s += ` · piro ${state.piroRate}°/s`;
-  else if (state.step !== 45) s += ` · ${state.step}°`;
+  else if (state.step !== 90) s += ` · ${state.step}°`;
   return s;
 }

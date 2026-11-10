@@ -7,8 +7,8 @@ export const DEFAULTS = Object.freeze({
 
   // Pilot input (see sim/scenario.js)
   scenario: 'flick', // 'flick' | 'piro'
-  step: 45,          // flick angle (deg)
-  flickRate: 180,    // yaw stick rate command during a flick (deg/s)
+  step: 90,          // flick angle (deg)
+  flickRate: 360,    // yaw stick rate command during a flick (deg/s)
   piroRate: 360,     // yaw stick rate command during a piro (deg/s); negative = nose left
   piroTime: 1.5,     // how long the piro stick is held (s)
   duration: 4,       // visible simulation time after the input starts (s)

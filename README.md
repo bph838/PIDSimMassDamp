@@ -68,7 +68,7 @@ To add a new control: add the field to `ui/state.js` (and `simParams()`), add a 
 
 ## Presets
 
-All presets use a 360°/s piro for 1.5 s, or a 45° flick at 180°/s. "Stop" values are measured after the stick is centred.
+Numbers are for a 360°/s piro held for 1.5 s, or the default flick (90° at 360°/s). Presets change the gains only, never the pilot input. "Stop" values are measured after the stick is centred.
 
 | Preset | Changes from stock | What you should see |
 |---|---|---|
@@ -83,7 +83,8 @@ All presets use a 360°/s piro for 1.5 s, or a 45° flick at 180°/s. "Stop" val
 ### Things to try
 
 - **Stop gains:** pin Stock, then try Community and Soft stops on the same piro to compare the stops side by side.
-- **I-term relax** (under *Advanced*): a flick holds a few degrees short of the stick angle, because relax stops I from accumulating heading error while the stick is moving. Untick it and the flick finishes with less overshoot but further from the stick angle.
+- **Tail authority:** the default flick (90° at 360°/s, so the stick is held for only 0.25 s) is faster than this tail can follow. The heli reaches about 236°/s and turns only about 41°. A rate controller doesn't chase the missing angle. Slow the stick rate to 180°/s and it turns close to the full 90°.
+- **I-term relax** (under *Advanced*): even on a gentle flick (45° at 180°/s) the heli holds a few degrees short of the stick angle, because relax stops I from accumulating heading error while the stick is moving. Untick it and the flick finishes with less overshoot but further from the stick angle.
 - **Collective FF:** turn on the collective punch and sweep collective FF from 0 to 100. The kick disappears around 60, and above that it overcompensates.
 - **θmax ≈ 6°:** with only 1° of authority above trim, a piro is capped at about 32 °/s, the physical limit.
 - **There's no "Too much P" preset.** Very high P doesn't oscillate on this model, which lacks the fast tail dynamics that cause it on a real helicopter.
