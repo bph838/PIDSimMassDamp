@@ -2,6 +2,8 @@
 import {
   simulate, computeMetrics, computeStopMetrics, PRESETS,
   createRotorflightYawPid, RF_YAW_DEFAULTS, RF_YAW_LIMITS,
+  YAW_RATES_DEFAULTS, yawRateForStick, maxYawRate, stickForYawRate,
+  parseRotorflightCli, profileChoices, yawConfigFromCli,
 } from './sim/index.js';
 import { difFilter, firstOrderLPF, pt1Filter, transition } from './sim/rotorflight/filters.js';
 
@@ -224,6 +226,63 @@ console.log('\nSanity checks');
   for (let i = 0; i < 20; i++) simulate({ scenario: 'piro' });
   const ms = (performance.now() - t0) / 20;
   check('Fast enough to re-run on every slider change', ms < 20, `${fmt(ms, 1)} ms per run`);
+}
+
+// ---------------------------------------------------------------- CLI diff/dump import
+console.log('\nRotorflight rates and CLI import');
+{
+  // Rate curves, values worked by hand from src/main/fc/rc_rates.c
+  check('ROTORFLIGHT default yaw: full stick = rc_rate × 5 = 400 °/s', maxYawRate(YAW_RATES_DEFAULTS) === 400);
+  const half = yawRateForStick(YAW_RATES_DEFAULTS, 0.5);   // 400·(0.5·0.5 + 0.5^2.75·0.5)
+  check('ROTORFLIGHT default yaw: half stick ≈ 129.7 °/s', Math.abs(half - 400 * (0.25 + 0.5 * 0.5 ** 2.75)) < 1e-9, `${fmt(half, 1)}`);
+  const act = { type: 'ACTUAL', rcRate: 20, expo: 0, srate: 60 };
+  check('ACTUAL: centre 200, max 600 °/s, half stick 200 °/s', maxYawRate(act) === 600 && Math.abs(yawRateForStick(act, 0.5) - 200) < 1e-9);
+  check('BETAFLIGHT: rc 100, expo 0, srate 0 → 200 °/s', maxYawRate({ type: 'BETAFLIGHT', rcRate: 100, expo: 0, srate: 0 }) === 200);
+  check('Rates capped at the 2000 °/s setpoint limit', maxYawRate({ type: 'ACTUAL', rcRate: 200, expo: 0, srate: 255 }) === 2000);
+  check('Negative stick → negative rate', yawRateForStick(YAW_RATES_DEFAULTS, -1) === -400);
+  const s = stickForYawRate(YAW_RATES_DEFAULTS, half);
+  check('stickForYawRate inverts the curve', Math.abs(s - 0.5) < 1e-6, `${fmt(s, 6)}`);
+  check('stickForYawRate → null beyond full stick', stickForYawRate(YAW_RATES_DEFAULTS, 401) === null);
+
+  // A `diff all` shaped like the firmware prints it (src/main/cli/cli.c)
+  const diffAll = [
+    '# diff all',
+    '# Rotorflight / STM32F7X2 (S7X2) 4.5.0 Nov  8 2026 / 12:00:00 (df6bda6) MSP API: 12.08',
+    'set name = Goblin',
+    '# profile 0', 'profile 0', '', 'set yaw_p_gain = 50',
+    '# profile 1', 'profile 1', '',
+    'set profile_name = 3D', 'set yaw_p_gain = 120', 'set yaw_i_gain = 180', 'set yaw_d_gain = 20',
+    'set yaw_cw_stop_gain = 180', 'set yaw_ccw_stop_gain = 165', 'set error_limit = 30,30,45',
+    'set iterm_relax_type = RP', 'set iterm_relax_cutoff = 10,10,15', 'set yaw_inertia_precomp_gain = 20',
+    '# restore original profile selection', 'profile 1',
+    '# rateprofile 0', 'rateprofile 0', '', 'set rates_type = ACTUAL', 'set yaw_rc_rate = 20', 'set yaw_srate = 60',
+    'set yaw_expo = 0', 'set yaw_accel_limit = 300',
+    '# rateprofile 1', 'rateprofile 1', '',
+    '# restore original rateprofile selection', 'rateprofile 0', '', '# save configuration', 'save',
+  ].join('\r\n');
+  const parsed = parseRotorflightCli(diffAll);
+  const ch = profileChoices(parsed);
+  check('Parser finds version, profiles, and the active ones', parsed.version === '4.5.0' && ch.pid.join() === '0,1'
+    && ch.rate.join() === '0,1' && ch.activePid === 1 && ch.activeRate === 0, `v${parsed.version}, pid ${ch.activePid}, rate ${ch.activeRate}`);
+  const cfg = yawConfigFromCli(parsed, ch.activePid, ch.activeRate);
+  check('Active PID profile values loaded', cfg.rf.P === 120 && cfg.rf.I === 180 && cfg.rf.D === 20
+    && cfg.rf.cwStopGain === 180 && cfg.rf.ccwStopGain === 165 && cfg.name === '3D');
+  check('Array settings read at the yaw index', cfg.rf.errorLimit === 45 && cfg.rf.itermRelaxCutoff === 15);
+  check('iterm_relax_type RP → no yaw I-term relax', cfg.rf.itermRelax === false);
+  check('Values missing from a diff stay at the firmware default', cfg.rf.collectiveFF === RF_YAW_DEFAULTS.collectiveFF
+    && cfg.rf.F === RF_YAW_DEFAULTS.F);
+  check('Rates read from the active rate profile', cfg.rates.type === 'ACTUAL' && maxYawRate(cfg.rates) === 600);
+  check('Unmodelled settings are flagged', cfg.notes.some((n) => n.includes('inertia')) && cfg.notes.some((n) => n.includes('accel limit')),
+    cfg.notes.join(' | '));
+  const other = yawConfigFromCli(parsed, 0, 1);
+  check('Choosing another profile reads its values', other.rf.P === 50 && other.rf.I === RF_YAW_DEFAULTS.I
+    && other.rates.type === 'ROTORFLIGHT' && maxYawRate(other.rates) === 400);
+  const loose = yawConfigFromCli(parseRotorflightCli('set yaw_p_gain = 90\nset yaw_rc_rate = 100'), null, null);
+  check('Bare `set` lines without profile headers still load', loose.rf.P === 90 && maxYawRate(loose.rates) === 500 && loose.found === 2);
+  const junk = yawConfigFromCli(parseRotorflightCli('hello world\nset motor_poles = 10'), null, null);
+  check('Text with no yaw settings reports found = 0', junk.found === 0);
+  const big = yawConfigFromCli(parseRotorflightCli('set yaw_p_gain = 1500'), null, null);
+  check('Out-of-range values are clamped with a note', big.rf.P === RF_YAW_LIMITS.P[1] && big.notes.length === 1);
 }
 
 console.log(failures ? `\n${failures} check(s) FAILED\n` : '\nAll checks passed\n');

@@ -28,6 +28,8 @@ sim/                    simulation: no DOM, runs in the browser and in Node
   rotorflight/          port of Rotorflight firmware code (GPL-3.0-or-later)
     yawPid.js           pidApplyYawMode3, yaw precomp, mixer saturation, default profile
     filters.js          pt1, first-order LPF, band-limited differentiator, transition()
+    rates.js            applyRatesCurve: stick deflection -> yaw rate, all six rate types
+    cli.js              reads the yaw PID profile and yaw rates from a CLI diff/dump
 
 ui/                     browser only
   main.js               entry point: wires the modules together, run() and showAt()
@@ -38,10 +40,21 @@ ui/                     browser only
   heliView.js           top-down helicopter canvas
   playback.js           Play/Pause, 1× / 0.25×
   pins.js               "Pin this run" (up to 4 ghost traces)
+  rfConfig.js           "Your Rotorflight config" panel: load, pick profiles, save in localStorage
   theme.js, util.js     colours from CSS variables; small helpers
 ```
 
 To add a new control: add the field to `ui/state.js` (and `simParams()`), add a row to `SLIDERS` in `ui/controls.js` (or a checkbox in `index.html` plus `CHECKBOXES`), and use it in `sim/`. A slider key like `rf.P` writes into the Rotorflight profile, and a `show` function on a slider controls when it's visible. Physics changes stay in `sim/` and are covered by `node test.js`.
+
+## Load your own Rotorflight config
+
+In the Rotorflight configurator's CLI tab, run `diff all` (or `dump all`) and save or copy the output. Then use **Load file…** or **Paste text** in the *Your Rotorflight config* panel.
+
+- **Yaw PID profile:** the active PID profile's yaw values replace the sliders: `yaw_p/i/d/f/b_gain`, `yaw_cw/ccw_stop_gain`, `yaw_gyro_cutoff`, `yaw_d_cutoff`, `yaw_b_cutoff`, yaw entries of `error_limit`, `iterm_relax_level` and `iterm_relax_cutoff`, `iterm_relax_type`, `error_decay_time_yaw`, `error_decay_limit_yaw`, `yaw_precomp_cutoff`, `yaw_collective_ff_gain`, `yaw_cyclic_ff_gain` and `yaw_master_gain`. A diff only lists changed values, so anything missing is the firmware default.
+- **Yaw rates:** `rates_type`, `yaw_rc_rate`, `yaw_expo` and `yaw_srate` from the active rate profile go through a port of `applyRatesCurve`. The flick and piro stick rates are set to your full-stick yaw rate, and each stick-rate slider shows how much stick that rate takes on your curve.
+- **Profiles:** with several PID or rate profiles you can pick which one to use. The active ones are picked by default.
+- **Not simulated:** `yaw_response`, `yaw_accel_limit`, setpoint boost, the yaw dynamic deadband/ceiling, inertia precomp and `pid_mode` other than 3. The panel lists any of these your config changes from the default.
+- **Saved:** the config is kept in the browser's localStorage and re-applied on your next visit. Slider changes made after loading are not saved; **Reset to config** puts the loaded values back, and **Forget config** removes it.
 
 ## Model
 

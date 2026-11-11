@@ -11,6 +11,7 @@ import { updateReadouts } from './readouts.js';
 import { createHeliView } from './heliView.js';
 import { createPlayback } from './playback.js';
 import { createPins } from './pins.js';
+import { initRfConfig } from './rfConfig.js';
 
 let res = null;
 
@@ -70,7 +71,12 @@ const pins = createPins({
   },
   onChange: () => res && updateCharts(res, pins.pins),
 });
-initControls({ onChange: scheduleRun }); // gains start at Rotorflight stock values; the Stock preset highlights itself
+// Gains start at Rotorflight stock values (the Stock preset highlights itself), then a
+// Rotorflight config saved on an earlier visit, if any, replaces them.
+let rfConfig = null;
+const controls = initControls({ onChange: scheduleRun, loadedConfig: () => rfConfig?.loaded() ?? null });
+rfConfig = initRfConfig({ controls, onChange: scheduleRun });
+controls.refresh();
 
 if (!window.Chart) {
   document.querySelector('.main').insertAdjacentHTML('afterbegin',

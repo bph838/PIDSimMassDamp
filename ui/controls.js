@@ -2,7 +2,7 @@
 // and preset buttons. Every change writes to `state` and calls onChange().
 // Keys like 'rf.P' address the Rotorflight yaw profile (see state.js).
 
-import { PRESETS, RF_YAW_DEFAULTS, RF_YAW_LIMITS } from '../sim/index.js';
+import { PRESETS, RF_YAW_DEFAULTS, RF_YAW_LIMITS, stickForYawRate } from '../sim/index.js';
 import { state, getValue, setStateValue, MODEL_DEFAULTS } from './state.js';
 import { $, clamp } from './util.js';
 
@@ -11,6 +11,15 @@ import { $, clamp } from './util.js';
 // Rotorflight values use exactly the ranges Rotorflight accepts, as whole numbers
 // (RF_YAW_LIMITS in sim/rotorflight/yawPid.js).
 const rf = (k) => ({ min: RF_YAW_LIMITS[k][0], max: RF_YAW_LIMITS[k][1] });
+
+// With a Rotorflight config loaded, show how much yaw stick a rate takes on its rates curve.
+const STICK_RATE_MAX = 720;
+function stickHint(rate, fallback = '') {
+  if (!state.yawRates) return fallback;
+  const s = stickForYawRate(state.yawRates, rate);
+  const txt = s === null ? 'beyond full stick' : `${Math.round(s * 100)}% stick`;
+  return fallback ? `${txt} · ${fallback}` : txt;
+}
 const SLIDERS = [
   // Rotorflight gains (Rotorflight units). P/I/D/F/B: 0..PID_GAIN_MAX (1000).
   { key: 'rf.P', group: 'rfgains', label: 'P', ...rf('P'), step: 1, hint: 'rate error (damping)' },
@@ -35,9 +44,9 @@ const SLIDERS = [
 
   // pilot input
   { key: 'step', group: 'step', label: 'Yaw angle', unit: '°', min: 10, max: 180, step: 1, show: () => state.scenario === 'flick' },
-  { key: 'flickRate', group: 'step', label: 'Stick rate', unit: '°/s', min: 30, max: 720, step: 10, show: () => state.scenario === 'flick' },
+  { key: 'flickRate', group: 'step', label: 'Stick rate', unit: '°/s', min: 30, max: STICK_RATE_MAX, step: 1, hint: () => stickHint(state.flickRate), show: () => state.scenario === 'flick' },
   { key: 'pilotLead', group: 'step', label: 'Let go early', unit: 's', min: 0, max: 0.3, step: 0.01, hint: 'pilot anticipation', show: () => state.scenario === 'flick' },
-  { key: 'piroRate', group: 'step', label: 'Piro rate', unit: '°/s', min: -720, max: 720, step: 10, hint: '− = nose left', show: () => state.scenario === 'piro' },
+  { key: 'piroRate', group: 'step', label: 'Piro rate', unit: '°/s', min: -STICK_RATE_MAX, max: STICK_RATE_MAX, step: 1, hint: () => stickHint(state.piroRate, '− = nose left'), show: () => state.scenario === 'piro' },
   { key: 'piroTime', group: 'step', label: 'Piro time', unit: 's', min: 0.2, max: 4, step: 0.1, show: () => state.scenario === 'piro' },
   { key: 'duration', group: 'step', label: 'Duration', unit: 's', min: 0.5, max: 10, step: 0.25 },
 
@@ -63,7 +72,7 @@ const SCENARIO_BLURB = {
   piro: 'Pirouette: the yaw stick is held at the piro rate, then centred. Watch the stop: drift-on, bounce-back, stop time.',
 };
 
-export function initControls({ onChange }) {
+export function initControls({ onChange, loadedConfig = () => null }) {
   const controls = {};
   const decimals = (s) => (String(s.step).split('.')[1] || '').length;
   const fmt = (key, v) => Number(v).toFixed(decimals(controls[key].spec));
@@ -75,13 +84,15 @@ export function initControls({ onChange }) {
     const row = document.createElement('div');
     row.className = 'slider-row';
     row.innerHTML =
-      `<label for="nm-${s.key}">${s.label}${s.unit ? `<span class="unit">${s.unit}</span>` : ''}${s.hint ? `<small>${s.hint}</small>` : ''}</label>` +
+      `<label for="nm-${s.key}">${s.label}${s.unit ? `<span class="unit">${s.unit}</span>` : ''}${s.hint ? `<small></small>` : ''}</label>` +
       `<input type="number" id="nm-${s.key}" min="${s.min}" max="${s.max}" step="${s.step}">` +
       `<input type="range" id="sl-${s.key}" min="${s.min}" max="${s.max}" step="${s.step}" aria-label="${s.label}">`;
     $('grp-' + s.group).append(row);
     const range = row.querySelector('input[type=range]');
     const num = row.querySelector('input[type=number]');
-    controls[s.key] = { range, num, row, spec: s };
+    const hintEl = row.querySelector('small');
+    if (hintEl) hintEl.textContent = typeof s.hint === 'function' ? s.hint() : s.hint;
+    controls[s.key] = { range, num, row, spec: s, hintEl };
     range.addEventListener('input', () => setValue(s.key, parseFloat(range.value), 'range'));
     num.addEventListener('input', () => {
       const v = parseFloat(num.value);
@@ -94,6 +105,7 @@ export function initControls({ onChange }) {
     const c = controls[key];
     c.range.value = getValue(key);
     c.num.value = fmt(key, getValue(key));
+    if (typeof c.spec.hint === 'function') c.hintEl.textContent = c.spec.hint();
   }
 
   function setValue(key, v, from) {
@@ -102,6 +114,7 @@ export function initControls({ onChange }) {
     if (from !== 'range') c.range.value = v;
     if (from !== 'num') c.num.value = fmt(key, v);
     if (key === 'duration') updatePunchRange();
+    if (typeof c.spec.hint === 'function') c.hintEl.textContent = c.spec.hint();
     markPreset();
     onChange();
   }
@@ -111,6 +124,17 @@ export function initControls({ onChange }) {
     const c = controls.punchTime;
     c.range.max = c.num.max = state.duration;
     if (state.punchTime > state.duration) { state.punchTime = state.duration; sync('punchTime'); }
+  }
+
+  // Widen the stick-rate sliders to reach a loaded config's full-stick rate (null = back to default).
+  function setStickRange(maxRate) {
+    const max = Math.max(STICK_RATE_MAX, Math.ceil(maxRate || 0));
+    const f = controls.flickRate, p = controls.piroRate;
+    f.range.max = f.num.max = max;
+    p.range.max = p.num.max = max;
+    p.range.min = p.num.min = -max;
+    state.flickRate = clamp(state.flickRate, 30, max);
+    state.piroRate = clamp(state.piroRate, -max, max);
   }
 
   SLIDERS.forEach(buildSlider);
@@ -157,7 +181,10 @@ export function initControls({ onChange }) {
       b.classList.toggle('active', on);
       if (on) active = p;
     }
-    $('preset-blurb').textContent = active ? active.blurb : 'Custom gains.';
+    const mine = loadedConfig();
+    const isMine = !active && mine && Object.keys(RF_YAW_DEFAULTS).every((k) => mine.rf[k] === state.rf[k]);
+    $('preset-blurb').textContent = active ? active.blurb
+      : isMine ? `Yaw gains from ${mine.label}.` : 'Custom gains.';
     $('readout-blurb').textContent = active ? `${active.name}: ${active.blurb}` : '';
   }
 
@@ -188,5 +215,5 @@ export function initControls({ onChange }) {
 
   refresh();
 
-  return { applyPreset, refresh };
+  return { applyPreset, refresh, setStickRange };
 }

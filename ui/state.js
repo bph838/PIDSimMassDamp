@@ -17,15 +17,21 @@ export const MODEL_DEFAULTS = Object.freeze({
   servoUpdateHz: DEFAULTS.servoUpdateHz,
 });
 
+/** Stick rates used when no Rotorflight config is loaded (deg/s). */
+export const PILOT_DEFAULTS = Object.freeze({ flickRate: 360, piroRate: 360 });
+
 export const state = {
   scenario: 'flick',        // 'flick' | 'piro'
 
   // Rotorflight yaw profile (Rotorflight units)
   rf: { ...RF_YAW_DEFAULTS },
   rateNoise: 0,
+  // Yaw rates from a loaded Rotorflight config ({ type, rcRate, expo, srate }), or null.
+  // Only used to show how much stick a rate needs; the sim takes rates in deg/s.
+  yawRates: null,
 
   // pilot input
-  step: 90, flickRate: 360, pilotLead: DEFAULTS.pilotLead, piroRate: 360, piroTime: 1.5, duration: 1,
+  step: 90, ...PILOT_DEFAULTS, pilotLead: DEFAULTS.pilotLead, piroTime: 1.5, duration: 1,
 
   // heli model and signal chain
   ...MODEL_DEFAULTS,

@@ -211,3 +211,23 @@ body {
 .model-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
 .model-note { color: var(--ink-2); font-size: 12px; }
 .btn-small { padding: 3px 8px; font-size: 12px; }
+
+/* ---------- Rotorflight config import ---------- */
+.blurb code { font-size: 11px; background: var(--surface-2); padding: 0 4px; border-radius: 4px; }
+.cfg-paste { margin-top: 8px; display: grid; gap: 6px; justify-items: start; }
+.cfg-paste textarea {
+  width: 100%; box-sizing: border-box; resize: vertical;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+  color: var(--ink); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 7px; padding: 6px 8px;
+}
+.cfg-error { margin: 8px 0 0; color: var(--serious); font-size: 12px; }
+.cfg-loaded { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.cfg-title { margin: 0 0 6px; font-weight: 650; font-size: 13px; overflow-wrap: anywhere; }
+.cfg-loaded .select-row select { width: auto; max-width: 150px; }
+.cfg-summary { margin: 4px 0 6px; font-size: 12px; color: var(--ink-2); line-height: 1.5; }
+.cfg-summary b { color: var(--ink); font-weight: 600; }
+.cfg-summary .muted { color: var(--muted); }
+.cfg-notes { margin: 0 0 8px; padding-left: 16px; font-size: 12px; color: var(--muted); }
+.cfg-notes:empty { display: none; }
+.cfg-notes li { margin: 2px 0; }

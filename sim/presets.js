@@ -24,7 +24,7 @@ export const PRESETS = [
   { id: 'rateMode', name: 'Rate mode (I = 0)', rf: rf({ I: 0 }), scenario: 'flick',
     blurb: 'No I term: the tail only damps yaw rate, it has no heading hold. Main-rotor torque makes the heli drift steadily (~16°/s).' },
   { id: 'noPrecomp', name: 'Precomp off', rf: rf({ collectiveFF: 0 }), scenario: 'flick', punch: true,
-    blurb: 'Collective FF 0, with a collective punch at 2 s: the torque kick yaws the heli ~2.1° until I catches up. Set it back to 60 and the kick drops to ~0.7°.' },
+    blurb: 'Collective FF 0, with a collective punch: the torque kick yaws the heli ~2.1° until I catches up. Set it back to 60 and the kick drops to ~0.7°.' },
   { id: 'noisyD', name: 'Noisy D', rf: rf({ D: 100 }), scenario: 'flick', rateNoise: 5,
     blurb: 'D 100 with 5°/s of gyro noise: D acts on yaw acceleration, so it turns noise into tail chatter. (Also switches on gyro noise.)' },
 ];

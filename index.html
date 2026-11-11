@@ -16,6 +16,34 @@
   <main class="layout">
     <aside class="controls">
       <section class="panel">
+        <h2>Your Rotorflight config</h2>
+        <p class="blurb small">Load a CLI <code>diff all</code> or <code>dump all</code> to use your heli's yaw PID values and yaw rates.
+          It's kept in this browser for your next visit.</p>
+        <div class="btn-row">
+          <button id="cfgFileBtn" class="btn">Load file…</button>
+          <button id="cfgPasteToggle" class="btn btn-quiet">Paste text</button>
+          <input type="file" id="cfgFile" accept=".txt,.cli,.log,text/plain" hidden>
+        </div>
+        <div id="cfgPaste" class="cfg-paste" hidden>
+          <textarea id="cfgText" rows="6" spellcheck="false" aria-label="Rotorflight CLI output"
+            placeholder="Paste the output of `diff all` from the Rotorflight CLI tab"></textarea>
+          <button id="cfgPasteLoad" class="btn btn-small">Load pasted text</button>
+        </div>
+        <p id="cfgError" class="cfg-error" role="alert" hidden></p>
+        <div id="cfgLoaded" class="cfg-loaded" hidden>
+          <p id="cfgTitle" class="cfg-title"></p>
+          <label class="select-row" id="cfgPidRow">PID profile <select id="cfgPid"></select></label>
+          <label class="select-row" id="cfgRateRow">Rate profile <select id="cfgRate"></select></label>
+          <p id="cfgRates" class="cfg-summary"></p>
+          <ul id="cfgNotes" class="cfg-notes"></ul>
+          <div class="btn-row">
+            <button id="cfgReapply" class="btn btn-small" title="Undo slider changes: put the config's yaw values and full-stick rate back">Reset to config</button>
+            <button id="cfgForget" class="btn btn-quiet btn-small" title="Remove the config from this browser and go back to Rotorflight defaults">Forget config</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
         <h2>Presets</h2>
         <div id="presets" class="preset-grid"></div>
         <p id="preset-blurb" class="blurb">Pick a preset, or drag the sliders. Every change re-runs the simulation.</p>
