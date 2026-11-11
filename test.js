@@ -368,5 +368,14 @@ console.log('\nConfigurator units and loop rates');
     `${fmt(a.overshootDeg, 2)}° vs ${fmt(b.overshootDeg, 2)}°`);
 }
 
+// ---------------------------------------------------------------- version shown on the page
+console.log('\nVersion');
+{
+  const { readFileSync } = await import('node:fs');
+  const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
+  const shown = readFileSync(new URL('./index.html', import.meta.url), 'utf8').match(/id="appVersion"[^>]*>v([^<]+)</)?.[1];
+  check('index.html shows the package.json version', shown === pkg, `page v${shown}, package.json ${pkg}`);
+}
+
 console.log(failures ? `\n${failures} check(s) FAILED\n` : '\nAll checks passed\n');
 process.exitCode = failures ? 1 : 0;
