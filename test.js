@@ -54,14 +54,17 @@ console.log('\nRotorflight port: primitives');
     Math.abs(transition(0, -10, 10, 0.8, 1.2) - 1) < 1e-12);
 }
 {
-  // Term scaling: a 100 deg/s rate error with stock P 80 and CW stop gain 1.2
-  // gives P = 0.00006666666 * 80 * 100 * 1.2 mixer units, x24 for degrees.
-  const c = createRotorflightYawPid({ gyroCutoff: 0, itermRelax: false, I: 0, D: 0 }, 1000, 45);
-  c.initHover(0, 0);
-  const out = c.update(100, 0, 0);
-  const expectP = 0.00006666666 * 80 * 100 * 1.2 * 24;
-  check('P term matches pid.c scaling (stock P 80, 100°/s error)', Math.abs(out.P - expectP) < 1e-9,
-    `${fmt(out.P, 4)}° vs ${fmt(expectP, 4)}°`);
+  // Term scaling: a 100 deg/s rate error with stock P 80 gives P = 0.00006666666 * 80 * 100 * stop gain
+  // mixer units, x24 for degrees. Stop gain by direction (sim sign = Rotorflight's negated):
+  // error -100 (stopping a nose-right turn) → CW gain 1.2; error +100 → CCW gain 0.8.
+  for (const [err, gain, name] of [[-100, 1.2, 'CW'], [100, 0.8, 'CCW']]) {
+    const c = createRotorflightYawPid({ gyroCutoff: 0, itermRelax: false, I: 0, D: 0 }, 1000, 45);
+    c.initHover(0, 0);
+    const out = c.update(err, 0, 0);
+    const expectP = 0.00006666666 * 80 * err * gain * 24;
+    check(`P term matches pid.c scaling (stock P 80, ${err}°/s error → ${name} stop gain ${gain * 100})`, Math.abs(out.P - expectP) < 1e-9,
+      `${fmt(out.P, 4)}° vs ${fmt(expectP, 4)}°`);
+  }
   // I term: 10 deg/s of error for 1 s accumulates 10 deg of axisError -> I = 0.0005*120*10 units
   const ci = createRotorflightYawPid({ gyroCutoff: 0, itermRelax: false, P: 0, D: 0 }, 1000, 45);
   ci.initHover(0, 0);
@@ -194,9 +197,12 @@ console.log('\nSanity checks');
   const gentle = { scenario: 'flick', step: 45, flickRate: 180 };
   const m = computeMetrics(simulate(gentle));
   check('Gentle flick: I-term relax means it holds a little short (0.5-5°)', m.ssError > 0.5 && m.ssError < 5, `${fmt(m.ssError, 2)}°`);
-  const noRelax = computeMetrics(simulate({ ...gentle, rf: { ...RF_YAW_DEFAULTS, itermRelax: false } }));
-  check('Gentle flick: without I-term relax it overshoots less', noRelax.overshootDeg < m.overshootDeg,
-    `${fmt(noRelax.overshootDeg, 1)}° vs ${fmt(m.overshootDeg, 1)}°`);
+  // What I-term relax is for: the I-term doesn't wind up during the piro, so it pulls back less after the stop.
+  const piro = { scenario: 'piro', piroRate: 360, piroTime: 1.5, duration: 4 };
+  const on = computeStopMetrics(simulate(piro));
+  const off = computeStopMetrics(simulate({ ...piro, rf: { ...RF_YAW_DEFAULTS, itermRelax: false } }));
+  check('Piro stop: without I-term relax it bounces back more (> 1° more)', off.bounceBack > on.bounceBack + 1,
+    `${fmt(off.bounceBack, 1)}° vs ${fmt(on.bounceBack, 1)}° with relax`);
 }
 {
   // Rate-mode drift comes entirely from main-rotor torque: remove the torque (and the
@@ -300,7 +306,7 @@ console.log('\nGain search (Find best gains)');
 
   const base = { ...DEFAULTS, scenario: 'flick', step: 90, flickRate: 360, duration: 1 };
   const t0 = performance.now();
-  const r = searchGains({ base, start: RF_YAW_DEFAULTS, samples: 60, refineTop: 1, seed: 3 });
+  const r = searchGains({ base, start: RF_YAW_DEFAULTS, effort: 'quick', seed: 3 }); // what the app's Quick button runs
   const ms = performance.now() - t0;
   const best = r.results[0];
   check('Search beats Rotorflight stock on the 90° flick', best.detail.J < r.current.detail.J,
@@ -310,7 +316,7 @@ console.log('\nGain search (Find best gains)');
     nominal.map((c) => fmt(c.settle)).join(' / ') + ' s');
   check('Results stay inside the search ranges', r.results.every((x) => Object.entries(TUNE_RANGES)
     .every(([k, [lo, hi]]) => x.rf[k] >= lo && x.rf[k] <= hi && Number.isInteger(x.rf[k]))));
-  const again = searchGains({ base, start: RF_YAW_DEFAULTS, samples: 60, refineTop: 1, seed: 3 });
+  const again = searchGains({ base, start: RF_YAW_DEFAULTS, effort: 'quick', seed: 3 });
   check('Same seed → same result', JSON.stringify(again.results[0].rf) === JSON.stringify(best.rf));
   const locked = searchGains({ base, start: RF_YAW_DEFAULTS, keys: ['ccwStopGain'], samples: 20, refineTop: 1 });
   check('Unticked gains are left alone', ['P', 'I', 'D', 'F', 'cwStopGain'].every((k) => locked.results[0].rf[k] === RF_YAW_DEFAULTS[k]),

@@ -110,7 +110,7 @@ gyro ─► gyro LPF ─► Rotorflight yaw PID ─► servo frame ─► servo 
 - **Units.** Gains are in Rotorflight's own units. Its output is a mixer input where 1.0 = 24° of tail pitch, the configurator's tail override scale.
 - **What the gains do.** Rotorflight controls yaw **rate**, not heading. **P** damps rate error (stock P 80 = 0.128° of tail pitch per °/s). **I** integrates rate error into heading hold (stock I 120 = 1.44° of pitch per ° of heading error). **D** acts on yaw acceleration.
 - **Torque-model calibration.** The torque model's collective coefficient is set so that Rotorflight's default collective FF (60) matches this model.
-- **Assumption.** The CW stop gain is applied when the rate error is positive (tail pushing the nose right). If Rotorflight's internal yaw sign is the opposite, the CW/CCW labels swap.
+- **Stop-gain direction.** The CW stop gain is used when stopping a nose-right (clockwise) rotation and the CCW gain when stopping a nose-left one. Rotorflight's PID works in the opposite yaw sign to this sim, so the port swaps the sign of its `transition()` call. This was checked against a Rotorflight 4.6 blackbox log, where the logged P-term divided by the rate error is the CW gain for one error sign and the CCW gain for the other.
 
 ## Presets
 
@@ -118,19 +118,19 @@ Numbers are for a 360°/s piro held for 1.5 s (as `node test.js` measures them; 
 
 | Preset | Changes from stock | What you should see |
 |---|---|---|
-| Stock | P 80, I 120, D 10, stop gains 120/80, collective FF 60 | Piro stop takes about 0.34 s, carries on about 28° and bounces back about 7°. The 90° turn peaks at about 97° and settles on 90°. |
+| Stock | P 80, I 120, D 10, stop gains 120/80, collective FF 60 | Piro stop takes about 0.30 s, carries on about 26° and bounces back about 5°. The 90° turn peaks at about 95° and holds about 92°. |
 | Community | P 120, I 180, D 20, stop gains 180/165 | Crisp stop: about 0.18 s with only about 2° of bounce-back. |
 | Soft stops | stop gains 50/50 | Lets go late: bounces back about 17° and wobbles. Takes about 0.8 s to stop. |
 | Too much P | P 700 | A fast tail wag (about 9 Hz) that never settles. The tail bangs between its limits. |
 | Too much I | I 600 | A slower tail wag (about 5 Hz) that never dies out. |
-| Rate mode (I = 0) | I 0 | No heading hold. Main-rotor torque makes it drift steadily (about 16 °/s). |
-| Precomp off | collective FF 0, punch on | The collective punch kicks the heading about 2.1°. Collective FF 60 cuts that to about 0.7°. |
+| Rate mode (I = 0) | I 0 | No heading hold. Main-rotor torque makes it drift steadily (about 23 °/s). |
+| Precomp off | collective FF 0, punch on | The collective punch kicks the heading about 2.5°. Collective FF 60 cuts that to about 0.8°. |
 | Noisy D | D 100, +5 °/s gyro noise | D acts on acceleration, so noise turns into tail chatter (about 2.7× stock D). |
 
 ### Things to try
 
 - **Stop gains:** pin Stock, then try Community and Soft stops on the same piro to compare the stops side by side.
-- **The 90° turn:** Stock peaks at about 97° and settles on 90°. Community overshoots less (about 94°). Change *let go early* to see how the pilot's timing interacts with the tune.
+- **The 90° turn:** Stock peaks at about 95° and holds about 92°. Community peaks a little lower (about 94°). Change *let go early* to see how the pilot's timing interacts with the tune.
 - **Loop delays:** load *Too much P*, then set the gyro LPF to 0, the servo update rate to 5000 Hz and the thrust lag to 0. The wag disappears. That's why the model needs those delays.
 - **I-term relax** (under *Advanced*): relax stops I from accumulating heading error while the stick is moving, so the heli holds wherever it ends up after the stop. On a gentle 45° turn at 180°/s it holds about 2° short. Untick it and the overshoot goes away.
 - **Collective FF:** turn on the collective punch and sweep collective FF from 0 to 100. The kick disappears around 60, and above that it overcompensates.

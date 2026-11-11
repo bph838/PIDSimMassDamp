@@ -1,1 +1,5 @@
 \example_bbl\*
+# Blackbox logs (large, personal flight data)
+example_bbl/
+*.BBL
+*.bbl
