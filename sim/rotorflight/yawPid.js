@@ -23,9 +23,14 @@
  * where 1.0 = 24 deg of tail pitch (the configurator's tail override scale,
  * 0.024 deg per raw unit). Outputs from this module are converted to degrees.
  *
- * Sign convention (assumption): positive yaw = nose right (clockwise from above),
- * and the CW stop gain applies when the rate error is positive. If Rotorflight's
- * internal yaw sign is the opposite, the CW/CCW labels swap.
+ * Sign convention: positive yaw = nose right (clockwise from above). Rotorflight's
+ * PID works in the opposite sign (setpoint.c: "rcCommand[YAW] CW direction is
+ * positive, while gyro[YAW] is negative", so the setpoint is negated), and there
+ * the CW stop gain applies when the rate error is positive. In this sim's sign that
+ * is a negative error: the CW gain is used when stopping a nose-right (clockwise)
+ * rotation. Checked against a Rotorflight 4.6 blackbox log: logged axisP / rate error
+ * is the CW gain for positive Rotorflight error and the CCW gain for negative, and the
+ * hover tail trim is negative there (positive here).
  */
 
 import { limitf, constrain, transition, pt1Filter, firstOrderLPF, difFilter } from './filters.js';
@@ -149,7 +154,9 @@ export function createRotorflightYawPid(profile, pidRateHz, tailLimitDeg) {
     const gyroRate = gyrorFilter.apply(gyro);
 
     const errorRate = setpoint - gyroRate;
-    const stopGain = transition(errorRate, -10, 10, yawCCWStopGain, yawCWStopGain);
+    // Rotorflight: transition(error, -10, 10, CCW, CW) in its own (negated) sign, so here
+    // a negative error (stopping a nose-right turn) uses the CW gain.
+    const stopGain = transition(errorRate, -10, 10, yawCWStopGain, yawCCWStopGain);
 
     // P-term
     const P = Kp * masterGain * errorRate * stopGain;
