@@ -4,7 +4,7 @@ import {
   createRotorflightYawPid, RF_YAW_DEFAULTS, RF_YAW_LIMITS,
   YAW_RATES_DEFAULTS, yawRateForStick, maxYawRate, stickForYawRate,
   parseRotorflightCli, profileChoices, yawConfigFromCli,
-  DEFAULTS, searchGains, createScorer, TUNE_RANGES, stepResponse,
+  DEFAULTS, searchGains, createScorer, TUNE_RANGES, stepResponse, yawRatesDisplay,
 } from './sim/index.js';
 import { difFilter, firstOrderLPF, pt1Filter, transition } from './sim/rotorflight/filters.js';
 
@@ -341,6 +341,31 @@ console.log('\nStep response');
     `${fmt(sym.right.overshoot, 1)}% vs ${fmt(sym.left.overshoot, 1)}%`);
   const hiP = stepResponse({ rf: { ...RF_YAW_DEFAULTS, P: 700 } }, 50);
   check('Too much P → the step response never settles (wag)', hiP.right.settle === null);
+}
+
+// ---------------------------------------------------------------- configurator units and loop rates
+console.log('\nConfigurator units and loop rates');
+{
+  const show = (r) => yawRatesDisplay(r).map((f) => `${f.label} ${f.value}${f.unit ?? ''}`).join(' · ');
+  // The M4 log's yaw rates (rates_type 6 = ROTORFLIGHT, rc_rate 102, expo 40, srate 52) as the Rates tab shows them
+  check('Rates tab: Rotorflight yaw 102/40/52 → Rate 510°/s · Shape 52 · Expo 40',
+    show({ type: 'ROTORFLIGHT', rcRate: 102, expo: 40, srate: 52 }) === 'Rate 510°/s · Shape 52 · Expo 40');
+  check('Rates tab: Actual 20/0/60 → Center Sensitivity 200°/s · Max Rate 600°/s · Expo 0',
+    show({ type: 'ACTUAL', rcRate: 20, expo: 0, srate: 60 }) === 'Center Sensitivity 200°/s · Max Rate 600°/s · Expo 0');
+  check('Rates tab: Betaflight 120/0/70 → RC Rate 1.2 · Rate 0.7 · RC Expo 0',
+    show({ type: 'BETAFLIGHT', rcRate: 120, expo: 0, srate: 70 }) === 'RC Rate 1.2 · Rate 0.7 · RC Expo 0');
+
+  // Every Rotorflight PID loop frequency (8 kHz gyro / pid_process_denom 1-8) runs exactly and samples every 1 ms
+  let ok = true, worst = 0;
+  for (let denom = 1; denom <= 8; denom++) {
+    const r = simulate({ loopRate: 8000 / denom, duration: 1 });
+    for (let i = 1; i < r.t.length; i++) worst = Math.max(worst, Math.abs(r.t[i] - r.t[i - 1] - 0.001));
+    if (r.t.length !== 1501) ok = false;
+  }
+  check('All loop rates 1-8 kHz: 1501 samples, ~1 ms apart (within one physics step)', ok && worst < 0.0005, `worst gap error ${fmt(worst * 1000, 3)} ms`);
+  const a = computeMetrics(simulate({ loopRate: 1000, duration: 1 })), b = computeMetrics(simulate({ loopRate: 1000, duration: 1, dt: 0.000125 }));
+  check('Physics step barely matters (1 kHz loop, 0.5 vs 0.125 ms step)', Math.abs(a.overshootDeg - b.overshootDeg) < 0.1,
+    `${fmt(a.overshootDeg, 2)}° vs ${fmt(b.overshootDeg, 2)}°`);
 }
 
 console.log(failures ? `\n${failures} check(s) FAILED\n` : '\nAll checks passed\n');

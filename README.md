@@ -89,7 +89,8 @@ gyro ─► gyro LPF ─► Rotorflight yaw PID ─► servo frame ─► servo 
 - **Tail servo:** first-order lag (10 ms) plus a 1000 °/s slew limit, toward a command clamped to ±θmax. It takes a new position once per servo frame (Rotorflight's default servo update rate, 333 Hz).
 - **Thrust lag:** blade pitch takes 10 ms to become thrust (tail-rotor inflow).
 - **Gyro LPF:** Rotorflight's default `gyro_lpf1` (first order, 100 Hz) filters the gyro before the PID.
-- **Physics:** 0.5 ms steps (semi-implicit Euler). The controller runs at the loop rate (1 kHz by default).
+- **Physics:** semi-implicit Euler, with steps of at most 0.5 ms that divide the PID loop period exactly. The controller runs at the PID loop frequency: the configurator's choices for an 8 kHz gyro (8, 4, 2.67, 2, 1.6, 1.33, 1.14 or 1 kHz; Rotorflight's default is 1 kHz). Traces are sampled every 1 ms.
+- **Value ranges:** every value you can enter matches the Rotorflight configurator (yaw gains 0–1000, stop gains 25–250, cutoffs 0–250, error limit 0–180, I-term relax cutoff 1–100, gyro LPF 0–1000 Hz, servo rate 50–5000 Hz). Settings the configurator doesn't show (error decay time, I-term relax level) use the CLI's values and ranges. A loaded config's yaw rates are shown with the Rates tab's names and units.
 
 **Why the delays matter.** With only a servo lag in the loop (the original model: A = 64, b = 2, 20 ms servo, no other delays), even P = 1000 was perfectly stable. On a real heli, high tail P wags because the gyro filter, servo frame, servo and thrust lags eat the loop's phase margin. With them in place, P starts to wag at about 600 and I at about 500. Stock (80/120) and the community tune (120/180) are clean, and community out-stops stock.
 

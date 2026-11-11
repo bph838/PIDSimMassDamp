@@ -110,14 +110,8 @@
 
       <section class="panel">
         <h2>Loop &amp; signal chain</h2>
-        <label class="select-row">Loop rate
-          <select id="loopRate">
-            <option value="100">100 Hz</option>
-            <option value="250">250 Hz</option>
-            <option value="500">500 Hz</option>
-            <option value="1000" selected>1 kHz</option>
-            <option value="2000">2 kHz</option>
-          </select>
+        <label class="select-row">PID loop frequency
+          <select id="loopRate" title="gyro rate ÷ pid_process_denom, as the configurator offers it (8 kHz gyro)"></select>
         </label>
         <div id="grp-loop"></div>
       </section>
@@ -143,7 +137,7 @@
         <p>Signal path: gyro → gyro LPF (100 Hz) → PID (1 kHz) → servo frame (333 Hz) → servo lag (10 ms) and
           1000 °/s slew → thrust lag (10 ms) → yaw dynamics dr/dt = A·θ − torque − b·r, dψ/dt = r (A = 128, b = 3 /s).
           Main-rotor torque needs the hover trim (5°) of tail at the 6° hover collective and rises with collective²
-          (induced drag). Physics runs at 0.5 ms (semi-implicit Euler).</p>
+          (induced drag). Physics runs in steps of at most 0.5 ms that divide the PID loop period (semi-implicit Euler).</p>
         <p>The delays are what make high gains wag, as on a real heli. Model values are calibrated so Rotorflight's stock
           and community tunes behave as reported, not measured on one airframe; change them in <em>Heli model</em>.</p>
         <p>Each run starts settled at the hover equilibrium for the current gains, holds still for a 2 s pre-roll

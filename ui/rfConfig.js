@@ -3,7 +3,7 @@
 // The text and the profile choices are kept in localStorage, so the config is
 // re-applied on the next visit (slider tweaks made after loading are not kept).
 
-import { parseRotorflightCli, profileChoices, yawConfigFromCli, maxYawRate, RF_YAW_DEFAULTS } from '../sim/index.js';
+import { parseRotorflightCli, profileChoices, yawConfigFromCli, maxYawRate, yawRatesDisplay, RF_YAW_DEFAULTS } from '../sim/index.js';
 import { state, PILOT_DEFAULTS } from './state.js';
 import { $ } from './util.js';
 
@@ -24,7 +24,8 @@ function writeStore(v) {
 const keepLines = (text) => String(text).split(/\r?\n/)
   .filter((l) => /^\s*(set\s|profile\s|rateprofile\s|#\s*rotorflight)/i.test(l)).join('\n');
 
-const RATE_LABEL = { NONE: 'None', BETAFLIGHT: 'Betaflight', RACEFLIGHT: 'Raceflight', KISS: 'KISS', ACTUAL: 'Actual', QUICK: 'Quick', ROTORFLIGHT: 'Rotorflight' };
+// Rate type names as the configurator's Rates tab lists them.
+const RATE_LABEL = { NONE: 'None', BETAFLIGHT: 'Betaflight', RACEFLIGHT: 'Raceflight', KISS: 'KISS', ACTUAL: 'Actual', QUICK: 'QuickRates', ROTORFLIGHT: 'Rotorflight' };
 
 /**
  * @param controls   the initControls() API ({ refresh, setStickRange })
@@ -65,7 +66,7 @@ export function initRfConfig({ controls, onChange }) {
     $('cfgRates').innerHTML =
       `Yaw: <b>P ${cfg.rf.P} · I ${cfg.rf.I} · D ${cfg.rf.D} · F ${cfg.rf.F}</b>, stop ${cfg.rf.cwStopGain}/${cfg.rf.ccwStopGain}<br>` +
       `Yaw rates: <b>${Math.round(maxYawRate(r))}°/s</b> full stick ` +
-      `<span class="muted">(${RATE_LABEL[r.type]} · rate ${r.rcRate} · expo ${r.expo} · ${r.type === 'ROTORFLIGHT' ? 'shape' : 'super'} ${r.srate})</span>`;
+      `<span class="muted">(${[RATE_LABEL[r.type], ...yawRatesDisplay(r).map((f) => `${f.label} ${f.value}${f.unit ?? ''}`)].join(' · ')})</span>`;
     $('cfgNotes').innerHTML = cfg.notes.map((n) => `<li>${n.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</li>`).join('');
   }
 

@@ -71,6 +71,33 @@ export function yawRateForStick(rates, deflection) {
   return Math.sign(deflection) * Math.min(curve(rates, x), SETPOINT_RATE_LIMIT);
 }
 
+/**
+ * The yaw rate settings as the Rotorflight configurator's Rates tab shows them: its labels
+ * and display units (src/tabs/rates/rateTypes.js: display = CLI value / 100 × the type's scale,
+ * since MSP carries rc_rate, srate and expo as CLI / 100). Columns in the tab's order.
+ * @returns [{ label, value, unit }]
+ */
+export function yawRatesDisplay(r) {
+  const c = (v) => v / 100; // configurator RC_TUNING units
+  const fix = (v, d) => +v.toFixed(d);
+  switch (r.type) {
+    case 'BETAFLIGHT':
+      return [{ label: 'RC Rate', value: fix(c(r.rcRate), 2) }, { label: 'Rate', value: fix(c(r.srate), 2) }, { label: 'RC Expo', value: fix(c(r.expo), 2) }];
+    case 'RACEFLIGHT':
+      return [{ label: 'Rate', value: r.rcRate * 10, unit: '°/s' }, { label: 'Acro+', value: r.srate }, { label: 'Expo', value: r.expo }];
+    case 'KISS':
+      return [{ label: 'RC Rate', value: fix(c(r.rcRate), 2) }, { label: 'Rate', value: fix(c(r.srate), 2) }, { label: 'RC Curve', value: fix(c(r.expo), 2) }];
+    case 'ACTUAL':
+      return [{ label: 'Center Sensitivity', value: r.rcRate * 10, unit: '°/s' }, { label: 'Max Rate', value: r.srate * 10, unit: '°/s' }, { label: 'Expo', value: fix(c(r.expo), 2) }];
+    case 'QUICK':
+      return [{ label: 'RC Rate', value: fix(c(r.rcRate), 2) }, { label: 'Max Rate', value: r.srate * 10, unit: '°/s' }, { label: 'Expo', value: fix(c(r.expo), 2) }];
+    case 'ROTORFLIGHT':
+      return [{ label: 'Rate', value: r.rcRate * 5, unit: '°/s' }, { label: 'Shape', value: r.srate }, { label: 'Expo', value: r.expo }];
+    default:
+      return [];
+  }
+}
+
 /** Full-stick yaw rate (deg/s). */
 export const maxYawRate = (rates) => yawRateForStick(rates, 1);
 

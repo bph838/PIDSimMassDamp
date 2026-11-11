@@ -17,9 +17,11 @@ const TRACES = ['t', 'psi', 'sp', 'rate', 'rateSp', 'cmd', 'theta', 'p', 'i', 'd
  */
 export function simulate(params) {
   const p = { ...DEFAULTS, ...params };
-  const dt = p.dt;
-  const ctrlEvery = Math.max(1, Math.round(1 / (p.loopRate * dt)));
-  const recEvery = Math.max(1, Math.round(p.recordDt / dt));
+  // Physics step: at most p.dt, and an exact divisor of the PID loop period, so every
+  // Rotorflight loop rate (gyro rate / pid_process_denom, e.g. 1.33 kHz) ticks exactly.
+  const period = 1 / p.loopRate;
+  const ctrlEvery = Math.max(1, Math.ceil(period / p.dt - 1e-9));
+  const dt = period / ctrlEvery;
   const stick = stickProfile(p);
   const coll = collectiveProfile(p);
   const trim = trimPitch(coll.torque(coll.hover), p.A);
@@ -42,7 +44,7 @@ export function simulate(params) {
   const tStart = -p.preroll;
   const nSteps = Math.round((p.preroll + p.duration) / dt);
   const recStart = -p.showPreroll;
-  const nRec = Math.floor((p.duration - recStart) / (recEvery * dt) + 1e-9) + 1;
+  const nRec = Math.floor((p.duration - recStart) / p.recordDt + 1e-9) + 1;
   const out = {};
   for (const k of TRACES) out[k] = new Float32Array(nRec);
   let k = 0;
@@ -68,7 +70,8 @@ export function simulate(params) {
     }
 
     // Record (zero-order hold of the last controller outputs)
-    if (t >= recStart - 1e-9 && k < nRec && n % recEvery === 0) {
+    // Sampled every recordDt: the first physics step at (or within half a step of) each sample time.
+    if (k < nRec && t >= recStart + k * p.recordDt - dt / 2 - 1e-12) {
       out.t[k] = t; out.psi[k] = s.psi; out.sp[k] = sp; out.rate[k] = s.r; out.rateSp[k] = rateSp;
       out.cmd[k] = u.cmd; out.theta[k] = s.theta;
       out.p[k] = u.P; out.i[k] = u.I; out.d[k] = u.D; out.f[k] = u.F;

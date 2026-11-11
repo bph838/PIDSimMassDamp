@@ -36,7 +36,7 @@ export const DEFAULTS = Object.freeze({
   punchTime: 2,        // seconds after t = 0
 
   // Signal chain around the PID (Rotorflight defaults)
-  loopRate: 1000,     // PID loop rate (Hz)
+  loopRate: 1000,     // PID loop rate (Hz): gyro rate / pid_process_denom (Rotorflight default 8 kHz / 8)
   gyroLpfHz: 100,     // gyro_lpf1_static_hz: 1st-order low-pass on the gyro before the PID; 0 = off
   servoUpdateHz: 333, // servo update rate (Hz): the servo takes a new position once per frame; 0 = continuous
 
@@ -45,6 +45,6 @@ export const DEFAULTS = Object.freeze({
   seed: 12345,       // RNG seed so the noise pattern is repeatable
 
   // Integration
-  dt: 0.0005,        // physics step (s)
+  dt: 0.0005,        // largest physics step (s); shortened to divide the PID loop period exactly
   recordDt: 0.001,   // plot sample interval (s)
 });

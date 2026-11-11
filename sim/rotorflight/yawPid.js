@@ -68,9 +68,11 @@ export const RF_YAW_DEFAULTS = Object.freeze({
 });
 
 /**
- * What Rotorflight lets you enter for each yaw profile value (whole numbers only):
- * the configurator's Profiles tab (src/tabs/profiles/fields.js, Profiles.svelte) or,
- * for settings it doesn't show, the firmware CLI (src/main/cli/settings.c).
+ * What Rotorflight lets you enter for each yaw profile value (whole numbers only).
+ * Checked against firmware release/4.6.0 (flight/pid.h PID_GAIN_MAX = 1000;
+ * cli/settings.c) and configurator release/2.3.0, its pair (tabs/profiles.html:
+ * P/I/D/F/B inputs min 0 max 1000). In 2.3.0 the yaw error decay inputs are
+ * commented out (js/tabs/profiles.js), so those are CLI-only; so is iterm_relax_level.
  */
 export const RF_YAW_LIMITS = Object.freeze({
   P: [0, 1000], I: [0, 1000], D: [0, 1000], F: [0, 1000], B: [0, 1000], // PID_GAIN_MAX

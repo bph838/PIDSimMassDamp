@@ -27,8 +27,8 @@ const SLIDERS = [
   { key: 'rf.D', group: 'rfgains', label: 'D', ...rf('D'), step: 1, hint: 'yaw acceleration' },
   { key: 'rf.F', group: 'rfgains', label: 'F', ...rf('F'), step: 1, hint: 'stick feedforward' },
   { key: 'rf.B', group: 'rfgains', label: 'B', ...rf('B'), step: 1, hint: 'stick-rate boost' },
-  { key: 'rf.cwStopGain', group: 'rfgains', label: 'CW stop gain', unit: '%', ...rf('cwStopGain'), step: 1, hint: 'tail pushing nose right' },
-  { key: 'rf.ccwStopGain', group: 'rfgains', label: 'CCW stop gain', unit: '%', ...rf('ccwStopGain'), step: 1, hint: 'tail pushing nose left' },
+  { key: 'rf.cwStopGain', group: 'rfgains', label: 'CW stop gain', unit: '%', ...rf('cwStopGain'), step: 1, hint: 'stopping a nose-right (CW) turn' },
+  { key: 'rf.ccwStopGain', group: 'rfgains', label: 'CCW stop gain', unit: '%', ...rf('ccwStopGain'), step: 1, hint: 'stopping a nose-left (CCW) turn' },
   { key: 'rf.collectiveFF', group: 'rfgains', label: 'Collective FF', ...rf('collectiveFF'), step: 1, hint: 'torque precomp' },
   // Cutoffs: 0 = filter off (D/B cutoff 0 also switches that term off, as in the firmware).
   { key: 'rf.gyroCutoff', group: 'rfadv', label: 'Gyro cutoff', unit: 'Hz', ...rf('gyroCutoff'), step: 1, hint: '0 = off' },
@@ -61,7 +61,8 @@ const SLIDERS = [
 
   // signal chain (Rotorflight settings: gyro_lpf1_static_hz 0-1000, servo rate 25-5000)
   { key: 'gyroLpfHz', group: 'loop', label: 'Gyro LPF', unit: 'Hz', min: 0, max: 1000, step: 1, hint: 'gyro_lpf1 · 0 = off' },
-  { key: 'servoUpdateHz', group: 'loop', label: 'Servo update rate', unit: 'Hz', min: 25, max: 5000, step: 1 },
+  // Servos tab: Rate [Hz] 50-5000.
+  { key: 'servoUpdateHz', group: 'loop', label: 'Servo update rate', unit: 'Hz', min: 50, max: 5000, step: 1 },
   { key: 'rateNoise', group: 'dist', label: 'Gyro noise σ', unit: '°/s', min: 0, max: 20, step: 0.5, hint: 'on yaw rate' },
   { key: 'punchTime', group: 'dist', label: 'Punch at', unit: 's', min: 0.1, max: 4, step: 0.1, hint: 'after t = 0', show: () => state.punch },
 ];
@@ -145,6 +146,12 @@ export function initControls({ onChange, loadedConfig = () => null }) {
     const el = $(id);
     checkboxes[id] = el;
     el.addEventListener('change', () => { setStateValue(id, el.checked); markPreset(); refresh(); onChange(); });
+  }
+  // PID loop frequency: the configurator offers gyro rate / pid_process_denom (1-16) down to 1 kHz.
+  // An 8 kHz gyro gives 8, 4, 2.67, 2, 1.6, 1.33, 1.14 and 1 kHz (a 4 kHz gyro gives a subset).
+  for (let denom = 1; 8000 / denom >= 1000; denom++) {
+    const hz = 8000 / denom;
+    $('loopRate').add(new Option(`${(hz / 1000).toFixed(2)} kHz`, String(hz)));
   }
   $('loopRate').addEventListener('change', (e) => { state.loopRate = +e.target.value; onChange(); });
   $('resetModel').addEventListener('click', () => { Object.assign(state, MODEL_DEFAULTS); refresh(); onChange(); });
