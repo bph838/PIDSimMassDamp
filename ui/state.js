@@ -31,7 +31,7 @@ export const state = {
   yawRates: null,
 
   // pilot input
-  step: 90, ...PILOT_DEFAULTS, pilotLead: DEFAULTS.pilotLead, piroTime: 1.5, duration: 1,
+  step: 90, ...PILOT_DEFAULTS, pilotLead: DEFAULTS.pilotLead, piroTime: 0.5, duration: 1,
 
   // heli model and signal chain
   ...MODEL_DEFAULTS,

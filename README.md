@@ -114,7 +114,7 @@ gyro ─► gyro LPF ─► Rotorflight yaw PID ─► servo frame ─► servo 
 
 ## Presets
 
-Numbers are for a 360°/s piro held for 1.5 s, or the default 90° turn. Presets change the gains only, never the pilot input. "Stop" values are measured after the stick is centred.
+Numbers are for a 360°/s piro held for 1.5 s (as `node test.js` measures them; the app defaults to 0.5 s, which gives the same stops for Stock and Community), or the default 90° turn. Presets change the gains only, never the pilot input. "Stop" values are measured after the stick is centred.
 
 | Preset | Changes from stock | What you should see |
 |---|---|---|

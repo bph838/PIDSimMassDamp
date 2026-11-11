@@ -153,8 +153,8 @@ export function initControls({ onChange, loadedConfig = () => null }) {
   const scenarioBtns = [...$('scenario').querySelectorAll('.seg-btn')];
   scenarioBtns.forEach((b) => b.addEventListener('click', () => {
     state.scenario = b.dataset.scenario;
-    // A piro needs room for the stick hold plus the stop; don't cut it off.
-    if (state.scenario === 'piro') state.duration = Math.max(state.duration, Math.ceil(state.piroTime + 1));
+    // A piro needs room for the stick hold plus the stop: at least 0.5 s after the stick is centred.
+    if (state.scenario === 'piro') state.duration = Math.max(state.duration, Math.ceil((state.piroTime + 0.5) * 4) / 4);
     refresh();
     onChange();
   }));
