@@ -38,7 +38,18 @@ export const state = {
 
   // disturbances
   mainTorque: true, punch: false, punchTime: 0.5,
+
+  // step response graph: step size 'stick' (the current stick rate) or 'small'
+  stepSize: 'stick',
 };
+
+export const SMALL_STEP = 50; // deg/s
+
+/** Stick rate of the current pilot input (deg/s, positive). */
+export const stickRate = () => Math.max(1, Math.abs(state.scenario === 'piro' ? state.piroRate : state.flickRate));
+
+/** Step size for the step response graph (deg/s). */
+export const stepAmplitude = () => (state.stepSize === 'small' ? SMALL_STEP : stickRate());
 
 /** Read a state value by key; 'rf.P' reads state.rf.P. */
 export function getValue(key) {

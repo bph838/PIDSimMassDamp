@@ -1,13 +1,15 @@
 // The time-series charts (heading, yaw rate, tail pitch, P/I/D/F), their playhead and hover tooltips.
 // Uses the global `Chart` from the Chart.js UMD build loaded in index.html.
 
-import { settleBand } from '../sim/index.js';
+import { settleBand, STEP_WINDOW, STEP_PRE, STEP_BAND } from '../sim/index.js';
 import { state, SHOW_PRE } from './state.js';
 import { T, PIN_SLOTS, withAlpha } from './theme.js';
 import { $, clamp, signed } from './util.js';
 
 const Chart = window.Chart;
-const charts = {};   // key -> Chart instance
+const charts = {};   // key -> Chart instance (the time-synced charts)
+let stepChart = null; // step response: its own time axis (time after the step), no playhead
+let stepAmp = null;   // step size (deg/s) of the trace on the step chart
 const overlays = {}; // key -> { ph: playhead div, tip: tooltip div }
 
 // Dataset indices in the heading chart
@@ -145,6 +147,77 @@ export function createCharts(handlers) {
   });
 
   for (const k in charts) attachPointer(k, handlers);
+  createStepChart();
+}
+
+// Step response dataset indices
+const S_RIGHT = 0, S_LEFT = 1, S_IDEAL = 2, S_PIN0 = 3, S_BAND_LO = 7, S_BAND_HI = 8;
+
+function createStepChart() {
+  if (stepChart) stepChart.destroy();
+  const opts = baseOptions('Rate ÷ command', true);
+  opts.scales.x.min = -STEP_PRE;
+  opts.scales.x.max = STEP_WINDOW;
+  opts.scales.x.title.text = 'Time after the step (s)';
+  opts.scales.x.ticks.includeBounds = false;
+  opts.scales.y.min = 0;
+  opts.events = ['mousemove', 'mouseout', 'click', 'touchmove'];
+  opts.interaction = { mode: 'nearest', axis: 'x', intersect: false };
+  opts.plugins.tooltip = {
+    enabled: true,
+    filter: (item) => item.datasetIndex === S_RIGHT || item.datasetIndex === S_LEFT,
+    callbacks: {
+      title: (items) => `t = ${(items[0].parsed.x * 1000).toFixed(0)} ms`,
+      label: (item) => `${item.dataset.label}: ${item.parsed.y.toFixed(2)}`,
+    },
+  };
+  stepChart = new Chart($('c-step'), {
+    type: 'line',
+    data: {
+      datasets: [
+        lineDs('Right', T.s1, { order: 0 }),
+        // Left in the same blue, dotted: pins own the other series colours.
+        lineDs('Left', T.s1, { order: 1, borderDash: [2, 3] }),
+        lineDs('Ideal', T['ink-2'], { order: 2, borderWidth: 1.5, borderDash: [6, 4] }),
+        ...PIN_SLOTS.map((sl, j) => lineDs('', withAlpha(T[sl], 0.6), { order: 3 + j, borderWidth: 1.5, noLegend: true })),
+        lineDs('', 'transparent', { order: 10, borderWidth: 0, noLegend: true }),
+        lineDs('±5% band', T.band, { order: 11, borderWidth: 0, fill: '-1' }),
+      ],
+    },
+    options: opts,
+  });
+}
+
+const ms = (x) => (x === null ? '—' : `${Math.round(x * 1000)} ms`);
+
+/** Redraw the step response. `step` is a stepResponse() result; pins carry their own `step` traces. */
+export function updateStepChart(step, pins) {
+  if (!stepChart) return;
+  const d = stepChart.data.datasets;
+  d[S_RIGHT].data = xy(step.right.t, step.right.y);
+  d[S_LEFT].data = xy(step.left.t, step.left.y);
+  d[S_IDEAL].data = [{ x: -STEP_PRE, y: 0 }, { x: 0, y: 0 }, { x: 0, y: 1 }, { x: STEP_WINDOW, y: 1 }];
+  stepAmp = step.amplitude;
+  // A pinned trace is only comparable at the same step size.
+  pins.forEach((p, j) => { d[S_PIN0 + j].data = p && p.step && p.step.amp === step.amplitude ? p.step.data : []; });
+  d[S_BAND_LO].data = hline(1 - STEP_BAND, 0, STEP_WINDOW);
+  d[S_BAND_HI].data = hline(1 + STEP_BAND, 0, STEP_WINDOW);
+  let hi = 1.2;
+  for (const r of [step.right, step.left]) for (let i = 0; i < r.y.length; i++) if (r.y[i] > hi) hi = r.y[i];
+  stepChart.options.scales.y.max = Math.min(3, Math.ceil(hi * 10 + 0.5) / 10);
+  stepChart.update('none');
+
+  const line = (name, sw, r) =>
+    `<span class="step-m"><span class="sw" style="background:${sw}"></span><b>${name}</b> ` +
+    `delay ${ms(r.delay)} · rise ${ms(r.rise)} · overshoot ${r.overshoot.toFixed(0)}% · settles ${ms(r.settle)}</span>`;
+  $('stepMetrics').innerHTML = line('Right', T.s1, step.right) +
+    line('Left', `repeating-linear-gradient(90deg, ${T.s1} 0 3px, transparent 3px 6px)`, step.left);
+}
+
+/** Right-turn step response (copy) and its step size, for pinning. */
+export function stepSnapshot() {
+  if (!stepChart) return null;
+  return { amp: stepAmp, data: stepChart.data.datasets[S_RIGHT].data.map((p) => ({ x: p.x, y: p.y })) };
 }
 
 function attachPointer(key, { onHover, onLeave, onClick }) {

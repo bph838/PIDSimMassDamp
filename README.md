@@ -24,6 +24,7 @@ sim/                    simulation: no DOM, runs in the browser and in Node
   metrics.js            rise / overshoot / settling / steady-state error, plus stop metrics
   presets.js            preset profiles and their descriptions
   tune.js               "Find best gains": scoring and the gain search (random + pattern search)
+  stepResponse.js       yaw-rate step response (right and left) and its delay / rise / overshoot / settling
   noise.js              seeded Gaussian noise for the gyro
   util.js               small numeric helpers
   rotorflight/          port of Rotorflight firmware code (GPL-3.0-or-later)
@@ -57,6 +58,10 @@ In the Rotorflight configurator's CLI tab, run `diff all` (or `dump all`) and sa
 - **Profiles:** with several PID or rate profiles you can pick which one to use. The active ones are picked by default.
 - **Not simulated:** `yaw_response`, `yaw_accel_limit`, setpoint boost, the yaw dynamic deadband/ceiling, inertia precomp and `pid_mode` other than 3. The panel lists any of these your config changes from the default.
 - **Saved:** the config is kept in the browser's localStorage and re-applied on your next visit. Slider changes made after loading are not saved; **Reset to config** puts the loaded values back, and **Forget config** removes it.
+
+## Step response
+
+The top graph is the yaw-rate step response, as tuning tools like PIDtoolbox show it: the yaw stick jumps to a rate at t = 0 and stays there, and the graph shows the measured yaw rate divided by the commanded rate (1.0 = the tail does exactly what the stick asks). Right and left turns are separate lines because the CW/CCW stop gains and main-rotor torque make them differ. Below the graph: delay (time to 50%), 10–90% rise time, overshoot and settling time (±5%). The step is the current pilot input's stick rate, or a small 50°/s step that shows the response without the tail saturating. Pinned runs show their right-turn response when pinned at the same step size.
 
 ## Find best gains
 

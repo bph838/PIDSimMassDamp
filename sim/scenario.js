@@ -22,6 +22,11 @@ export const SCENARIOS = ['flick', 'piro'];
  * }
  */
 export function stickProfile(p) {
+  if (p.scenario === 'rateStep') {
+    // Step response test (not a UI scenario): the stick jumps to `stepRate` at t = 0 and stays there.
+    const r = p.stepRate;
+    return { rate: (t) => (t >= 0 ? r : 0), heading: (t) => r * Math.max(t, 0), moveEnd: null, target: 0 };
+  }
   if (p.scenario === 'flick') {
     const dir = Math.sign(p.step) || 1;
     const rate = Math.abs(p.flickRate) * dir;

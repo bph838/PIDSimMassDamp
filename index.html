@@ -188,6 +188,15 @@
       </div>
 
       <section class="card chart-card">
+        <div class="chart-head"><h3>Step response</h3><span class="chart-note">yaw rate ÷ commanded rate after the stick jumps to a rate · dotted = left turn · dashed = ideal · pins show the right turn</span>
+          <div class="seg step-size" id="stepSize" role="group" aria-label="Step size">
+            <button class="seg-btn" data-size="stick" title="Step to the current pilot input's stick rate">stick</button>
+            <button class="seg-btn" data-size="small" title="A small step: the response without the tail saturating">small</button>
+          </div></div>
+        <div class="chart-wrap"><canvas id="c-step"></canvas></div>
+        <p id="stepMetrics" class="step-metrics"></p>
+      </section>
+      <section class="card chart-card">
         <div class="chart-head"><h3>Heading</h3><span class="chart-note">degrees · dashed = commanded heading · shaded = settling band</span></div>
         <div class="chart-wrap h-lg"><canvas id="c-heading"></canvas><div class="playhead"></div><div class="tip"></div></div>
       </section>

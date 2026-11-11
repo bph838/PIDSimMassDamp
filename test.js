@@ -4,7 +4,7 @@ import {
   createRotorflightYawPid, RF_YAW_DEFAULTS, RF_YAW_LIMITS,
   YAW_RATES_DEFAULTS, yawRateForStick, maxYawRate, stickForYawRate,
   parseRotorflightCli, profileChoices, yawConfigFromCli,
-  DEFAULTS, searchGains, createScorer, TUNE_RANGES,
+  DEFAULTS, searchGains, createScorer, TUNE_RANGES, stepResponse,
 } from './sim/index.js';
 import { difFilter, firstOrderLPF, pt1Filter, transition } from './sim/rotorflight/filters.js';
 
@@ -320,6 +320,21 @@ console.log('\nGain search (Find best gains)');
   const piro = createScorer({ ...base, scenario: 'piro', piroRate: 360, piroTime: 1.5 }, { robust: false })(RF_YAW_DEFAULTS, true);
   check('Piro scoring judges the stop both ways', piro.cases.length === 2 && piro.cases.every((c) => c.stop !== null),
     piro.cases.map((c) => `${fmt(c.stop)} s`).join(' / '));
+}
+
+// ---------------------------------------------------------------- step response graph
+console.log('\nStep response');
+{
+  const st = stepResponse({ rf: RF_YAW_DEFAULTS }, 50);
+  const ok = (r) => r.delay !== null && r.rise !== null && r.settle !== null && Math.abs(r.final - 1) < 0.05;
+  check('Stock: a 50 °/s step settles to 1.0 both ways', ok(st.right) && ok(st.left),
+    `right: delay ${fmt(st.right.delay * 1000, 0)} ms, overshoot ${fmt(st.right.overshoot, 0)}% · left: ${fmt(st.left.delay * 1000, 0)} ms, ${fmt(st.left.overshoot, 0)}%`);
+  check('Response is 0 before the step', st.right.y[0] === 0 && st.left.y[0] === 0);
+  const sym = stepResponse({ rf: { ...RF_YAW_DEFAULTS, ccwStopGain: RF_YAW_DEFAULTS.cwStopGain }, mainTorque: false }, 50);
+  check('No torque, equal stop gains → left and right match', Math.abs(sym.right.overshoot - sym.left.overshoot) < 0.5,
+    `${fmt(sym.right.overshoot, 1)}% vs ${fmt(sym.left.overshoot, 1)}%`);
+  const hiP = stepResponse({ rf: { ...RF_YAW_DEFAULTS, P: 700 } }, 50);
+  check('Too much P → the step response never settles (wag)', hiP.right.settle === null);
 }
 
 console.log(failures ? `\n${failures} check(s) FAILED\n` : '\nAll checks passed\n');

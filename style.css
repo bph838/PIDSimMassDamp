@@ -262,3 +262,10 @@ body {
 .eff-bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
 .eff-bar span { display: block; height: 100%; background: var(--s1); }
 .eff-val { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---------- Step response ---------- */
+.step-size { margin-left: auto; align-self: center; }
+.step-size .seg-btn { font-size: 12px; padding: 3px 8px; }
+.step-metrics { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.step-m b { color: var(--ink); font-weight: 600; margin-right: 2px; }
+.step-m .sw { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
