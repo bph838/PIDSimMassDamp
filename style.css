@@ -208,3 +208,6 @@ body {
 .seg-wide .seg-btn { flex: 1; padding: 6px 4px; }
 .seg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .hint a, .about a { color: var(--s1); }
+.model-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.model-note { color: var(--ink-2); font-size: 12px; }
+.btn-small { padding: 3px 8px; font-size: 12px; }

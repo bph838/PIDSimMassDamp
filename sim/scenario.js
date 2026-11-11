@@ -5,7 +5,7 @@
 //   piro   yaw stick held at `piroRate` for `piroTime` seconds, then centred (piro and stop)
 // Collective: hover collective, stepping up at `punchTime` when the punch is on.
 
-import { COLLECTIVE_DEG_PER_UNIT } from './rotorflight/yawPid.js';
+import { COLLECTIVE_DEG_PER_UNIT, TAIL_DEG_PER_UNIT } from './rotorflight/yawPid.js';
 
 export const SCENARIOS = ['flick', 'piro'];
 
@@ -47,19 +47,25 @@ export function stickProfile(p) {
   };
 }
 
+// Collective FF gain that exactly matches this model's torque-vs-collective curve.
+// Rotorflight's precomp adds (collective × FF/100)² mixer units of tail, so the
+// model's induced-drag coefficient is chosen to need exactly that.
+export const PRECOMP_MATCH_FF = 60;
+
 /**
  * Main-rotor torque model: profile drag + induced drag ∝ collective².
  *   torque(c) = base + K·(c² − c0²)
- * where base = D_main at hover collective c0 (or 0 with main torque off), and K is
- * `torquePerCollective2` (deg/s² per mixer-unit²). The punch raises collective from
- * c0 to the value that adds exactly `punchTorque` of torque.
+ * Everything is scaled by tail authority A, so torques are "degrees of tail pitch":
+ *   base = A · hoverTrim at hover collective c0 (0 with main torque off)
+ *   K    = A · 24 · (PRECOMP_MATCH_FF/100)²   (deg/s² per mixer-unit²)
+ * The punch raises collective from c0 to the value that adds A · punchTrim of torque.
  * Collective is in mixer units (1.0 = 12°).
  */
 export function collectiveProfile(p) {
   const c0 = p.hoverCollective / COLLECTIVE_DEG_PER_UNIT;
-  const K = p.torquePerCollective2;
-  const c1 = Math.sqrt(c0 * c0 + p.punchTorque / K);
-  const base = p.mainTorque ? p.Dmain : 0;
+  const K = p.A * TAIL_DEG_PER_UNIT * (PRECOMP_MATCH_FF / 100) ** 2;
+  const c1 = Math.sqrt(c0 * c0 + (p.A * p.punchTrim) / K);
+  const base = p.mainTorque ? p.A * p.hoverTrim : 0;
   const collective = (t) => (p.punch && t >= p.punchTime ? c1 : c0);
   const torque = (c) => (c === c0 ? base : base + K * (c * c - c0 * c0));
   return { collective, torque, hover: c0, punch: c1 };

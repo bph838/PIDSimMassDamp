@@ -44,12 +44,16 @@
       </section>
 
       <section class="panel">
-        <h2>Tail servo</h2>
-        <div id="grp-servo"></div>
+        <h2>Heli model</h2>
+        <p class="blurb small">Tail strength, damping and the delays between the PID and the thrust.
+          Defaults are tuned so Rotorflight's stock and community tunes behave as they do on a real heli.</p>
+        <div id="grp-model"></div>
+        <div class="model-foot"><span id="model-note" class="model-note"></span>
+          <button id="resetModel" class="btn btn-quiet btn-small">Reset model</button></div>
       </section>
 
       <section class="panel">
-        <h2>Loop</h2>
+        <h2>Loop &amp; signal chain</h2>
         <label class="select-row">Loop rate
           <select id="loopRate">
             <option value="100">100 Hz</option>
@@ -59,12 +63,13 @@
             <option value="2000">2 kHz</option>
           </select>
         </label>
+        <div id="grp-loop"></div>
       </section>
 
       <section class="panel">
         <h2>Disturbances</h2>
-        <label class="check"><input type="checkbox" id="mainTorque" checked> Main rotor torque <small>(320 °/s² at hover, needs +5° of tail)</small></label>
-        <label class="check"><input type="checkbox" id="punch"> Collective punch <small>(6° → 9.3° collective, +192 °/s² of torque)</small></label>
+        <label class="check"><input type="checkbox" id="mainTorque" checked> Main rotor torque <small>(needs the hover trim of tail pitch)</small></label>
+        <label class="check"><input type="checkbox" id="punch"> Collective punch <small>(6° → 9.3° collective, ≈ 3° more tail needed)</small></label>
         <div id="grp-dist"></div>
       </section>
 
@@ -79,9 +84,12 @@
 
       <details class="panel about">
         <summary>About the model</summary>
-        <p>dr/dt = A·θ − torque − b·r, dψ/dt = r with A = 64, b = 2 /s. Main-rotor torque is 320 °/s² at the 6° hover
-          collective and rises with collective² (induced drag). The tail servo follows the command with a first-order lag
-          and a 1000 °/s slew limit. Physics runs at 0.5 ms (semi-implicit Euler); the controller runs at the loop rate.</p>
+        <p>Signal path: gyro → gyro LPF (100 Hz) → PID (1 kHz) → servo frame (333 Hz) → servo lag (10 ms) and
+          1000 °/s slew → thrust lag (10 ms) → yaw dynamics dr/dt = A·θ − torque − b·r, dψ/dt = r (A = 128, b = 3 /s).
+          Main-rotor torque needs the hover trim (5°) of tail at the 6° hover collective and rises with collective²
+          (induced drag). Physics runs at 0.5 ms (semi-implicit Euler).</p>
+        <p>The delays are what make high gains wag, as on a real heli. Model values are calibrated so Rotorflight's stock
+          and community tunes behave as reported, not measured on one airframe; change them in <em>Heli model</em>.</p>
         <p>Each run starts settled at the hover equilibrium for the current gains, holds still for a 2 s pre-roll
           (the last 0.5 s is plotted), then the pilot input starts at t = 0.</p>
         <p>The controller is a port of <code>pidApplyYawMode3</code> and the yaw precomp from

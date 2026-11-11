@@ -123,21 +123,35 @@ for (const pr of PRESETS) {
 console.log('\nPreset behaviour');
 {
   const s = R.stock.sm, c = R.community.sm, soft = R.soft.sm;
-  check('Stock: piro stop bounces back 10-25°', s.bounceBack > 10 && s.bounceBack < 25, `${fmt(s.bounceBack)}°`);
-  check('Community: crisper stop than stock (bounce < 5°, faster stop)', c.bounceBack < 5 && c.stopTime < s.stopTime,
+  check('Stock: piro stop bounces back 4-10°', s.bounceBack > 4 && s.bounceBack < 10, `${fmt(s.bounceBack)}°`);
+  check('Community: crisper stop than stock (bounce < 3°, faster stop)', c.bounceBack < 3 && c.stopTime < s.stopTime,
     `${fmt(c.bounceBack)}° in ${fmt(c.stopTime, 2)} s vs ${fmt(s.bounceBack)}° in ${fmt(s.stopTime, 2)} s`);
-  check('Soft stops: much more bounce-back than stock (> 20°)', soft.bounceBack > 20, `${fmt(soft.bounceBack)}°`);
+  check('Soft stops: much more bounce-back than stock (> 12°)', soft.bounceBack > 12, `${fmt(soft.bounceBack)}°`);
   check('Soft stops: slower to stop than stock', soft.stopTime === null || soft.stopTime > s.stopTime,
     soft.stopTime === null ? 'never' : `${fmt(soft.stopTime, 2)} s`);
 }
 {
-  const drift = lastSecondDrift(R.rateMode.res);
-  check('Rate mode: no heading hold — drifts with main-rotor torque (> 10°/s)', Math.abs(drift) > 10, `${fmt(drift)}°/s over the last second`);
+  const rateSwing = (r) => { let lo = Infinity, hi = -Infinity; for (let i = 0; i < r.t.length; i++) if (r.t[i] >= 2.5) { lo = Math.min(lo, r.rate[i]); hi = Math.max(hi, r.rate[i]); } return hi - lo; };
+  const wagHz = (r) => {               // zero crossings of yaw rate about its mean, after 2.5 s
+    let sum = 0, c = 0; for (let i = 0; i < r.t.length; i++) if (r.t[i] >= 2.5) { sum += r.rate[i]; c++; }
+    const m = sum / c; let z = 0, prev = 0;
+    for (let i = 0; i < r.t.length; i++) if (r.t[i] >= 2.5) { const sg = Math.sign(r.rate[i] - m); if (sg && prev && sg !== prev) z++; if (sg) prev = sg; }
+    return z / 2 / (r.t[r.t.length - 1] - 2.5);
+  };
+  const hp = R.hiP.res, hi = R.hiI.res;
+  check('Too much P: fast tail wag that never settles (> 30°/s swing)', rateSwing(hp) > 30, `${fmt(rateSwing(hp), 1)}°/s at ~${fmt(wagHz(hp), 1)} Hz`);
+  check('Too much I: tail wag that never settles (> 30°/s swing)', rateSwing(hi) > 30, `${fmt(rateSwing(hi), 1)}°/s at ~${fmt(wagHz(hi), 1)} Hz`);
+  check('P wag is faster than I wag', wagHz(hp) > 1.5 * wagHz(hi), `${fmt(wagHz(hp), 1)} Hz vs ${fmt(wagHz(hi), 1)} Hz`);
+  check('Stock and Community have no wag', rateSwing(simulate({ scenario: 'flick' })) < 1 &&
+    rateSwing(simulate({ scenario: 'flick', rf: PRESETS.find((p) => p.id === 'community').rf })) < 1);
+  // The wag comes from loop delay: same P 700 with the gyro filter, servo frame and
+  // thrust lag removed is stable. (This is why the model needs those delays.)
+  const noDelay = simulate({ scenario: 'flick', rf: R.hiP.res.params.rf, gyroLpfHz: 0, servoUpdateHz: 0, thrustTau: 0 });
+  check('Too much P: wag disappears when the loop delays are removed', rateSwing(noDelay) < 1, `${fmt(rateSwing(noDelay), 2)}°/s`);
 }
 {
-  const { res } = R.hiI;
-  check('Too much I: tail wag still going at the end (swing > 2°)', swing(res, 2.5) > 2, `${fmt(swing(res, 2.5), 2)}°`);
-  check('Stock (flick) has no wag', swing(simulate({ scenario: 'flick' }), 2.5) < 0.05);
+  const drift = lastSecondDrift(R.rateMode.res);
+  check('Rate mode: no heading hold — drifts with main-rotor torque (> 10°/s)', Math.abs(drift) > 10, `${fmt(drift)}°/s over the last second`);
 }
 {
   const dip = (r) => {
@@ -147,12 +161,12 @@ console.log('\nPreset behaviour');
   };
   const off = dip(R.noPrecomp.res);
   const on = dip(simulate({ scenario: 'flick', punch: true }));
-  check('Precomp: collective FF 60 cuts the punch kick by > 3× vs FF 0', off > 3 * on, `${fmt(off, 2)}° vs ${fmt(on, 2)}°`);
+  check('Precomp: collective FF 60 cuts the punch kick by > 2.5× vs FF 0', off > 2.5 * on, `${fmt(off, 2)}° vs ${fmt(on, 2)}°`);
 }
 {
   const noisyD = chatter(R.noisyD.res, 2);
   const stockNoisy = chatter(simulate({ scenario: 'flick', rateNoise: 5 }), 2);
-  check('Noisy D: tail chatter > 1.5× stock D at the same noise', noisyD > 1.5 * stockNoisy, `${fmt(noisyD, 3)} vs ${fmt(stockNoisy, 3)} °/ms`);
+  check('Noisy D: tail chatter > 2× stock D at the same noise', noisyD > 2 * stockNoisy, `${fmt(noisyD, 3)} vs ${fmt(stockNoisy, 3)} °/ms`);
 }
 
 // ---------------------------------------------------------------- sanity checks
@@ -162,22 +176,21 @@ console.log('\nSanity checks');
   check('Stock flick: starts level at hover (I carries the trim)', Math.abs(m.psi0) < 0.01, `psi0 = ${fmt(m.psi0, 4)}`);
 }
 {
-  // Default 90° turn: the pilot holds 360°/s and lets go 0.1 s early to allow for the stop.
+  // Default 90° turn: the pilot holds 360°/s and lets go 0.06 s early to allow for the stop.
   const peak = (r) => { let pk = -Infinity; for (const v of r.psi) pk = Math.max(pk, v); return pk; };
   const comm = simulate({ scenario: 'flick', rf: PRESETS.find((p) => p.id === 'community').rf });
   const stock = simulate({ scenario: 'flick' });
-  check('90° turn: pilot lets go before the heli reaches 90°', comm.moveEnd > 0 && comm.psi[Math.round((comm.moveEnd - comm.t[0]) / 0.001)] < 90,
-    `released at ${fmt(comm.moveEnd, 2)} s`);
-  check('90° turn: Community tune peaks within ±2° of 90°', Math.abs(peak(comm) - 90) < 2, `peak ${fmt(peak(comm), 1)}°`);
-  check('90° turn: Community settles within 5° of 90°', Math.abs(computeMetrics(comm).ssError) < 5, `${fmt(90 - computeMetrics(comm).ssError, 1)}°`);
-  check('90° turn: Stock overshoots further, then bounces back below Community', peak(stock) > peak(comm) + 3 &&
-    computeMetrics(stock).ssError > computeMetrics(comm).ssError, `peak ${fmt(peak(stock), 1)}°, settles ${fmt(90 - computeMetrics(stock).ssError, 1)}°`);
+  check('90° turn: pilot lets go before the heli reaches 90°', stock.moveEnd > 0 && stock.psi[Math.round((stock.moveEnd - stock.t[0]) / 0.001)] < 90,
+    `released at ${fmt(stock.moveEnd, 2)} s`);
+  check('90° turn: Stock settles within 2° of 90°', Math.abs(computeMetrics(stock).ssError) < 2, `${fmt(90 - computeMetrics(stock).ssError, 1)}°`);
+  check('90° turn: Community overshoots less than Stock', peak(comm) < peak(stock),
+    `peak ${fmt(peak(comm), 1)}° vs ${fmt(peak(stock), 1)}°`);
 }
 {
   // I-term relax, on a flick gentle enough that the heli keeps up (45° at 180°/s).
   const gentle = { scenario: 'flick', step: 45, flickRate: 180 };
   const m = computeMetrics(simulate(gentle));
-  check('Gentle flick: I-term relax means it holds a few degrees short (1-5°)', m.ssError > 1 && m.ssError < 5, `${fmt(m.ssError, 2)}°`);
+  check('Gentle flick: I-term relax means it holds a little short (0.5-5°)', m.ssError > 0.5 && m.ssError < 5, `${fmt(m.ssError, 2)}°`);
   const noRelax = computeMetrics(simulate({ ...gentle, rf: { ...RF_YAW_DEFAULTS, itermRelax: false } }));
   check('Gentle flick: without I-term relax it overshoots less', noRelax.overshootDeg < m.overshootDeg,
     `${fmt(noRelax.overshootDeg, 1)}° vs ${fmt(m.overshootDeg, 1)}°`);
@@ -189,13 +202,15 @@ console.log('\nSanity checks');
   check('Rate mode with no main-rotor torque: no drift', Math.abs(lastSecondDrift(r)) < 0.01, `${fmt(lastSecondDrift(r), 4)}°/s`);
 }
 {
-  // theta_max = 6°: only 1° above the 5° trim → top rate (64·6 − 320)/2 = 32 °/s,
-  // so a 360 °/s piro command becomes a straight ramp at ~32 °/s.
+  // theta_max = 6°: only 1° above the 5° trim → top rate A·(6 − 5)/b,
+  // so a 360 °/s piro command becomes a straight ramp at that rate.
   const r = simulate({ scenario: 'piro', piroRate: 360, piroTime: 6, duration: 6, thetaMax: 6 });
+  const top = (r.params.A * (6 - r.params.hoverTrim)) / r.params.b;
   const rates = [];
   for (let i = 0; i < r.t.length; i++) if (r.t[i] > 2 && r.t[i] < 5.5) rates.push(r.rate[i]);
   const lo = Math.min(...rates), hi = Math.max(...rates);
-  check('Tiny θ_max → yaw rate capped at ≈32 °/s (within ±5%)', lo > 32 * 0.95 && hi < 32 * 1.05, `rate ${fmt(lo, 1)}…${fmt(hi, 1)} °/s`);
+  check(`Tiny θ_max → yaw rate capped at A·1°/b ≈ ${fmt(top, 1)} °/s (within ±5%)`, lo > top * 0.95 && hi < top * 1.05,
+    `rate ${fmt(lo, 1)}…${fmt(hi, 1)} °/s`);
   check('Tiny θ_max → tail saturated most of the piro', computeMetrics(r).satPct > 50, `${fmt(computeMetrics(r).satPct, 1)}%`);
 }
 {

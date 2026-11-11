@@ -2,7 +2,7 @@
 //   controls change state → run() simulates → charts, readouts and heli view redraw.
 
 import { simulate, computeMetrics, computeStopMetrics, sampleIndex } from '../sim/index.js';
-import { state, simParams, gainsLabel, SHOW_PRE } from './state.js';
+import { state, simParams, gainsLabel, topPiroRate, SHOW_PRE } from './state.js';
 import { readTheme, onThemeChange } from './theme.js';
 import { $, clamp } from './util.js';
 import { initControls } from './controls.js';
@@ -34,6 +34,9 @@ function run() {
   // A rate controller doesn't aim for the integrated stick angle of a piro, so hide those tiles.
   const tracking = state.scenario !== 'piro';
   updateReadouts(computeMetrics(res), computeStopMetrics(res), state.thetaMax, tracking);
+  $('model-note').textContent = state.hoverTrim >= state.thetaMax
+    ? "Tail can't hold hover: trim ≥ θ max"
+    : `Top piro rate ≈ ${Math.round(topPiroRate())}°/s`;
   playback.t = clamp(playback.t, -SHOW_PRE, state.duration);
   showAt(playback.t);
 }

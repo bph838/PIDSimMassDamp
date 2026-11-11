@@ -1,8 +1,21 @@
 // UI state (in UI units) and its mapping to simulate() parameters.
 
-import { RF_YAW_DEFAULTS } from '../sim/index.js';
+import { RF_YAW_DEFAULTS, DEFAULTS } from '../sim/index.js';
 
 export const SHOW_PRE = 0.5; // seconds of pre-roll shown on the graphs
+
+/** Heli model + signal chain, in UI units (ms where the sim uses seconds). */
+export const MODEL_DEFAULTS = Object.freeze({
+  thetaMax: DEFAULTS.thetaMax,
+  servoTauMs: DEFAULTS.servoTau * 1000,
+  thrustTauMs: DEFAULTS.thrustTau * 1000,
+  A: DEFAULTS.A,
+  b: DEFAULTS.b,
+  hoverTrim: DEFAULTS.hoverTrim,
+  loopRate: DEFAULTS.loopRate,
+  gyroLpfHz: DEFAULTS.gyroLpfHz,
+  servoUpdateHz: DEFAULTS.servoUpdateHz,
+});
 
 export const state = {
   scenario: 'flick',        // 'flick' | 'piro'
@@ -12,10 +25,12 @@ export const state = {
   rateNoise: 0,
 
   // pilot input
-  step: 90, flickRate: 360, pilotLead: 0.1, piroRate: 360, piroTime: 1.5, duration: 4,
+  step: 90, flickRate: 360, pilotLead: DEFAULTS.pilotLead, piroRate: 360, piroTime: 1.5, duration: 4,
 
-  // heli and loop
-  thetaMax: 25, servoTauMs: 20, loopRate: 1000,
+  // heli model and signal chain
+  ...MODEL_DEFAULTS,
+
+  // disturbances
   mainTorque: true, punch: false, punchTime: 2,
 };
 
@@ -38,11 +53,16 @@ export function simParams() {
     step: state.step, flickRate: state.flickRate, pilotLead: state.pilotLead,
     piroRate: state.piroRate, piroTime: state.piroTime,
     duration: state.duration, showPreroll: SHOW_PRE,
-    thetaMax: state.thetaMax, servoTau: state.servoTauMs / 1000, loopRate: state.loopRate,
+    thetaMax: state.thetaMax, servoTau: state.servoTauMs / 1000, thrustTau: state.thrustTauMs / 1000,
+    A: state.A, b: state.b, hoverTrim: state.hoverTrim,
+    loopRate: state.loopRate, gyroLpfHz: state.gyroLpfHz, servoUpdateHz: state.servoUpdateHz,
     mainTorque: state.mainTorque, punch: state.punch, punchTime: state.punchTime,
     rateNoise: state.rateNoise,
   };
 }
+
+/** Top piro rate the tail can sustain: A · (θmax − hover trim) / b (deg/s). */
+export const topPiroRate = () => (state.A * (state.thetaMax - state.hoverTrim)) / state.b;
 
 /** Short label of the current gains, e.g. for pinned runs. */
 export function gainsLabel() {

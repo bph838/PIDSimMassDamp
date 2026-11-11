@@ -3,7 +3,7 @@
 // Keys like 'rf.P' address the Rotorflight yaw profile (see state.js).
 
 import { PRESETS, RF_YAW_DEFAULTS, RF_YAW_LIMITS } from '../sim/index.js';
-import { state, getValue, setStateValue } from './state.js';
+import { state, getValue, setStateValue, MODEL_DEFAULTS } from './state.js';
 import { $, clamp } from './util.js';
 
 // `show` decides visibility (default: always).
@@ -42,8 +42,17 @@ const SLIDERS = [
   { key: 'duration', group: 'step', label: 'Duration', unit: 's', min: 1, max: 10, step: 0.5 },
 
   // heli
-  { key: 'thetaMax', group: 'servo', label: 'θ max', unit: '°', min: 1, max: 45, step: 0.5, hint: 'pitch limit' },
-  { key: 'servoTauMs', group: 'servo', label: 'Servo lag τ', unit: 'ms', min: 0, max: 100, step: 1 },
+  // heli model
+  { key: 'A', group: 'model', label: 'Tail authority A', unit: '°/s² per °', min: 16, max: 400, step: 1 },
+  { key: 'b', group: 'model', label: 'Yaw damping b', unit: '1/s', min: 0.5, max: 10, step: 0.1 },
+  { key: 'hoverTrim', group: 'model', label: 'Hover trim', unit: '°', min: 0, max: 15, step: 0.5, hint: 'tail pitch to hold' },
+  { key: 'thetaMax', group: 'model', label: 'θ max', unit: '°', min: 1, max: 45, step: 0.5, hint: 'pitch limit' },
+  { key: 'servoTauMs', group: 'model', label: 'Servo lag τ', unit: 'ms', min: 0, max: 100, step: 1 },
+  { key: 'thrustTauMs', group: 'model', label: 'Thrust lag', unit: 'ms', min: 0, max: 50, step: 1, hint: 'pitch → thrust' },
+
+  // signal chain (Rotorflight settings: gyro_lpf1_static_hz 0-1000, servo rate 25-5000)
+  { key: 'gyroLpfHz', group: 'loop', label: 'Gyro LPF', unit: 'Hz', min: 0, max: 1000, step: 1, hint: 'gyro_lpf1 · 0 = off' },
+  { key: 'servoUpdateHz', group: 'loop', label: 'Servo update rate', unit: 'Hz', min: 25, max: 5000, step: 1 },
   { key: 'rateNoise', group: 'dist', label: 'Gyro noise σ', unit: '°/s', min: 0, max: 20, step: 0.5, hint: 'on yaw rate' },
   { key: 'punchTime', group: 'dist', label: 'Punch at', unit: 's', min: 0.1, max: 4, step: 0.1, hint: 'after t = 0', show: () => state.punch },
 ];
@@ -114,6 +123,7 @@ export function initControls({ onChange }) {
     el.addEventListener('change', () => { setStateValue(id, el.checked); markPreset(); refresh(); onChange(); });
   }
   $('loopRate').addEventListener('change', (e) => { state.loopRate = +e.target.value; onChange(); });
+  $('resetModel').addEventListener('click', () => { Object.assign(state, MODEL_DEFAULTS); refresh(); onChange(); });
 
   // ---- scenario
   const scenarioBtns = [...$('scenario').querySelectorAll('.seg-btn')];

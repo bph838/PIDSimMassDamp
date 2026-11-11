@@ -7,6 +7,7 @@ import { clamp } from './util.js';
 import { createHeli, trimPitch } from './heli.js';
 import { stickProfile, collectiveProfile } from './scenario.js';
 import { createRotorflightYawPid } from './rotorflight/yawPid.js';
+import { firstOrderLPF } from './rotorflight/filters.js';
 
 const TRACES = ['t', 'psi', 'sp', 'rate', 'rateSp', 'cmd', 'theta', 'p', 'i', 'd', 'f', 'dist'];
 
@@ -31,6 +32,13 @@ export function simulate(params) {
   const heli = createHeli(p, dt, { psi: 0, r: 0, theta: theta0 });
   const s = heli.state, u = pid.out;
 
+  // Signal chain around the PID (Rotorflight defaults): gyro_lpf1 low-pass on the gyro
+  // before the PID, and the servo only taking a new position every 1/servoRate seconds.
+  const pidRate = 1 / (ctrlEvery * dt);
+  const gyroLpf = p.gyroLpfHz > 0 ? firstOrderLPF(p.gyroLpfHz, pidRate) : null;
+  const servoFrame = p.servoUpdateHz > 0 ? 1 / p.servoUpdateHz : 0;
+  let servoCmd = u.cmd, nextServo = -p.preroll;
+
   const tStart = -p.preroll;
   const nSteps = Math.round((p.preroll + p.duration) / dt);
   const recStart = -p.showPreroll;
@@ -49,7 +57,8 @@ export function simulate(params) {
 
     // Controller tick
     if (n % ctrlEvery === 0) {
-      const gyro = s.r + (p.rateNoise > 0 ? p.rateNoise * gauss() : 0);
+      const raw = s.r + (p.rateNoise > 0 ? p.rateNoise * gauss() : 0);
+      const gyro = gyroLpf ? gyroLpf.apply(raw) : raw;
       pid.update(rateSp, gyro, c);
       if (t >= 0) {
         ticksAfter++;
@@ -68,7 +77,10 @@ export function simulate(params) {
     }
     if (n === nSteps) break;
 
-    heli.step(u.cmd, coll.torque(c));
+    // Servo frame: latch the latest command at the servo update rate (0 = every step).
+    if (!servoFrame) servoCmd = u.cmd;
+    else if (t >= nextServo - 1e-12) { servoCmd = u.cmd; nextServo += servoFrame; }
+    heli.step(servoCmd, coll.torque(c));
     if (t >= 0 && Math.abs(s.r) > peakRate) peakRate = Math.abs(s.r);
   }
 
