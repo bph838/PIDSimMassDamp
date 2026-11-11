@@ -12,6 +12,7 @@ import { createHeliView } from './heliView.js';
 import { createPlayback } from './playback.js';
 import { createPins } from './pins.js';
 import { initRfConfig } from './rfConfig.js';
+import { initTune } from './tune.js';
 
 let res = null;
 
@@ -35,6 +36,7 @@ function run() {
   // A rate controller doesn't aim for the integrated stick angle of a piro, so hide those tiles.
   const tracking = state.scenario !== 'piro';
   updateReadouts(computeMetrics(res), computeStopMetrics(res), state.thetaMax, tracking);
+  tune.updateBlurb();
   $('model-note').textContent = state.hoverTrim >= state.thetaMax
     ? "Tail can't hold hover: trim ≥ θ max"
     : `Top piro rate ≈ ${Math.round(topPiroRate())}°/s`;
@@ -77,6 +79,8 @@ let rfConfig = null;
 const controls = initControls({ onChange: scheduleRun, loadedConfig: () => rfConfig?.loaded() ?? null });
 rfConfig = initRfConfig({ controls, onChange: scheduleRun });
 controls.refresh();
+const tune = initTune({ controls, pins, onChange: scheduleRun });
+tune.updateBlurb();
 
 if (!window.Chart) {
   document.querySelector('.main').insertAdjacentHTML('afterbegin',

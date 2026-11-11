@@ -231,3 +231,34 @@ body {
 .cfg-notes { margin: 0 0 8px; padding-left: 16px; font-size: 12px; color: var(--muted); }
 .cfg-notes:empty { display: none; }
 .cfg-notes li { margin: 2px 0; }
+
+/* ---------- Find best gains ---------- */
+.tune-keys { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 2px 0 4px; font-size: 13px; }
+.tune-keys label { cursor: pointer; white-space: nowrap; }
+.tune-keys input { accent-color: var(--s1); margin-right: 4px; vertical-align: -2px; }
+.tune-run { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 8px; flex-wrap: wrap; }
+.tune-run .btn-primary, #tuneGo { min-width: 130px; }
+.tune-progress { margin-top: 8px; }
+.tune-progress small { color: var(--muted); font-size: 12px; }
+.tune-track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-bottom: 4px; }
+.tune-track span { display: block; height: 100%; width: 0; background: var(--s1); transition: width 0.15s; }
+.tune-results { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; font-size: 12px; }
+.tune-results .muted { color: var(--muted); }
+.tune-setup { margin: 0 0 8px; color: var(--ink-2); }
+.tune-row { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; margin-bottom: 6px; }
+.tune-current { background: var(--surface-2); }
+.tune-head { display: flex; align-items: center; gap: 8px; }
+.tune-name { font-weight: 650; font-size: 13px; }
+.tune-score { color: var(--muted); margin-right: auto; }
+.tune-gains { margin: 3px 0; color: var(--ink-2); }
+.tune-gains b { color: var(--ink); font-weight: 650; }
+.tune-metrics { display: grid; gap: 1px; color: var(--muted); }
+.tune-metrics .bad { color: var(--serious); }
+.tune-none, .tune-note { color: var(--ink-2); margin: 6px 0 0; }
+.tune-sub { margin: 10px 0 4px; font-weight: 600; color: var(--ink); }
+.tune-effects { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.tune-effects li { display: grid; grid-template-columns: minmax(0, 9.5em) 1fr 3.6em; gap: 8px; align-items: center; }
+.eff-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eff-bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.eff-bar span { display: block; height: 100%; background: var(--s1); }
+.eff-val { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }

@@ -9,3 +9,4 @@ export { createHeli, trimPitch } from './heli.js';
 export { createRotorflightYawPid, RF_YAW_DEFAULTS, RF_YAW_LIMITS, TAIL_DEG_PER_UNIT, COLLECTIVE_DEG_PER_UNIT } from './rotorflight/yawPid.js';
 export { RATES_TYPES, YAW_RATES_DEFAULTS, yawRateForStick, maxYawRate, stickForYawRate } from './rotorflight/rates.js';
 export { parseRotorflightCli, profileChoices, yawConfigFromCli } from './rotorflight/cli.js';
+export { TUNE_KEYS, TUNE_RANGES, TUNE_EFFORT, createScorer, searchGains } from './tune.js';

@@ -5,7 +5,8 @@ import { $ } from './util.js';
 
 /**
  * @param opts { snapshot() -> { label, data }, onChange() }
- * @returns { pins, render() }   pins is a 4-slot array (null = empty slot)
+ * @returns { pins, render(), add(prefix) }   pins is a 4-slot array (null = empty slot);
+ *          add() pins the current run (label prefixed), returns false if all slots are full
  */
 export function createPins({ snapshot, onChange }) {
   const pins = PIN_SLOTS.map(() => null);
@@ -29,13 +30,18 @@ export function createPins({ snapshot, onChange }) {
 
   function changed() { render(); onChange(); }
 
-  pinBtn.addEventListener('click', () => {
+  function add(prefix = '') {
     const j = pins.indexOf(null);
-    if (j < 0) return;
-    pins[j] = snapshot();
+    if (j < 0) return false;
+    const snap = snapshot();
+    if (prefix) snap.label = `${prefix}: ${snap.label}`;
+    pins[j] = snap;
     changed();
-  });
+    return true;
+  }
+
+  pinBtn.addEventListener('click', () => add());
   $('clearPins').addEventListener('click', () => { pins.fill(null); changed(); });
 
-  return { pins, render };
+  return { pins, render, add };
 }

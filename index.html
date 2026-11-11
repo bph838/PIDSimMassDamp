@@ -62,6 +62,34 @@
       </section>
 
       <section class="panel">
+        <h2>Find best gains</h2>
+        <p class="blurb small">Searches P, I, D, F and the stop gains for the best response of this heli to the current
+          pilot input, turned both ways. <span id="tune-goal"></span></p>
+        <div id="tuneKeys" class="tune-keys" role="group" aria-label="Gains to tune">
+          <label><input type="checkbox" data-key="P" checked> P</label>
+          <label><input type="checkbox" data-key="I" checked> I</label>
+          <label><input type="checkbox" data-key="D" checked> D</label>
+          <label><input type="checkbox" data-key="F" checked> F</label>
+          <label><input type="checkbox" data-key="cwStopGain" checked> CW stop</label>
+          <label><input type="checkbox" data-key="ccwStopGain" checked> CCW stop</label>
+        </div>
+        <label class="check"><input type="checkbox" id="tuneRobust" checked> Also check a weaker and a stronger tail
+          <small>(so the result doesn't only suit this exact model)</small></label>
+        <div class="tune-run">
+          <div class="seg" id="tuneEffort" role="group" aria-label="Search effort">
+            <button class="seg-btn active" data-effort="quick" title="About 5 seconds">Quick</button>
+            <button class="seg-btn" data-effort="thorough" title="About 20 seconds">Thorough</button>
+          </div>
+          <button id="tuneGo" class="btn btn-primary">Find best gains</button>
+        </div>
+        <div id="tuneProgress" class="tune-progress" hidden>
+          <div class="tune-track"><span id="tuneBar"></span></div>
+          <small id="tuneProgressTxt"></small>
+        </div>
+        <div id="tuneResults" class="tune-results" aria-live="polite" hidden></div>
+      </section>
+
+      <section class="panel">
         <h2>Pilot input</h2>
         <div class="seg seg-wide" id="scenario" role="group" aria-label="Test input">
           <button class="seg-btn" data-scenario="flick">Stick flick</button>

@@ -23,6 +23,7 @@ sim/                    simulation: no DOM, runs in the browser and in Node
   simulate.js           runner: gyro LPF, servo frame, pre-roll in hover, fixed-step loop, recording
   metrics.js            rise / overshoot / settling / steady-state error, plus stop metrics
   presets.js            preset profiles and their descriptions
+  tune.js               "Find best gains": scoring and the gain search (random + pattern search)
   noise.js              seeded Gaussian noise for the gyro
   util.js               small numeric helpers
   rotorflight/          port of Rotorflight firmware code (GPL-3.0-or-later)
@@ -41,6 +42,7 @@ ui/                     browser only
   playback.js           Play/Pause, 1× / 0.25×
   pins.js               "Pin this run" (up to 4 ghost traces)
   rfConfig.js           "Your Rotorflight config" panel: load, pick profiles, save in localStorage
+  tune.js, tuneWorker.js  "Find best gains" panel; the search runs in a Web Worker
   theme.js, util.js     colours from CSS variables; small helpers
 ```
 
@@ -55,6 +57,18 @@ In the Rotorflight configurator's CLI tab, run `diff all` (or `dump all`) and sa
 - **Profiles:** with several PID or rate profiles you can pick which one to use. The active ones are picked by default.
 - **Not simulated:** `yaw_response`, `yaw_accel_limit`, setpoint boost, the yaw dynamic deadband/ceiling, inertia precomp and `pid_mode` other than 3. The panel lists any of these your config changes from the default.
 - **Saved:** the config is kept in the browser's localStorage and re-applied on your next visit. Slider changes made after loading are not saved; **Reset to config** puts the loaded values back, and **Forget config** removes it.
+
+## Find best gains
+
+The *Find best gains* panel searches P, I, D, F and the CW/CCW stop gains (untick any you want to keep) for the best response of the current setup to the current pilot input, turned both ways. It uses the heli model, signal chain and pilot input as currently set, including a loaded Rotorflight config's full-stick rate.
+
+- **Stick flick:** land on the yaw angle. The score is settling time into the ±2% band + 25 ms per degree of overshoot + 50 ms per degree of final error + a penalty for time spent with the tail saturated.
+- **Piro & stop:** stop cleanly. The score is stop time + 25 ms per degree of bounce-back + 10 ms per degree of drift-on.
+- **Robustness (on by default):** every candidate also runs on a weaker, laggier tail (A × 0.75, servo and thrust lag × 1.5) and a stronger tail (A × 1.25). Only the stop is scored there, because a pilot would change when they let go. This keeps the result from fitting only this exact model.
+- **Noise:** tail-command activity with 5°/s of gyro noise is free up to 2× Rotorflight stock and penalised above that, so D can't be raised for free.
+- **Search:** seeded random sampling (Quick: 300 sets, about 5 s; Thorough: 1500, about 20 s), then a pattern search from the best few. Results show up to three distinct tunes against the current gains, and how much worse the best gets if each changed gain is put back. **Apply** pins the current run as "Before" first, so you can compare.
+
+These are the best gains for the simulated heli. On a real heli, try them in a spare PID profile, one change at a time.
 
 ## Model
 

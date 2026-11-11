@@ -29,9 +29,11 @@ export function computeMetrics(res) {
   }
   const riseTime = t10 !== null && t90 !== null ? t90 - t10 : null;
 
-  let maxPsi = -Infinity;
-  for (let i = i0; i < n; i++) if (psi[i] > maxPsi) maxPsi = psi[i];
-  const overshootDeg = Math.max(0, (maxPsi - S) * Math.sign(S));
+  // Furthest heading in the turn direction (works for left turns, S < 0, too).
+  const dir = Math.sign(S) || 1;
+  let peak = -Infinity;
+  for (let i = i0; i < n; i++) if (dir * psi[i] > peak) peak = dir * psi[i];
+  const overshootDeg = Math.max(0, peak - dir * S);
   const overshoot = (overshootDeg / Math.abs(S)) * 100;
 
   // Settling: last time outside the band; must then stay in band for SETTLE_HOLD.

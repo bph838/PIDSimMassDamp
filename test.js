@@ -4,6 +4,7 @@ import {
   createRotorflightYawPid, RF_YAW_DEFAULTS, RF_YAW_LIMITS,
   YAW_RATES_DEFAULTS, yawRateForStick, maxYawRate, stickForYawRate,
   parseRotorflightCli, profileChoices, yawConfigFromCli,
+  DEFAULTS, searchGains, createScorer, TUNE_RANGES,
 } from './sim/index.js';
 import { difFilter, firstOrderLPF, pt1Filter, transition } from './sim/rotorflight/filters.js';
 
@@ -283,6 +284,42 @@ console.log('\nRotorflight rates and CLI import');
   check('Text with no yaw settings reports found = 0', junk.found === 0);
   const big = yawConfigFromCli(parseRotorflightCli('set yaw_p_gain = 1500'), null, null);
   check('Out-of-range values are clamped with a note', big.rf.P === RF_YAW_LIMITS.P[1] && big.notes.length === 1);
+}
+
+// ---------------------------------------------------------------- gain search
+console.log('\nGain search (Find best gains)');
+{
+  // Left turn overshoot is measured in the turn direction
+  const L = computeMetrics(simulate({ scenario: 'flick', step: -90, duration: 2 }));
+  const sym = { ...RF_YAW_DEFAULTS, ccwStopGain: RF_YAW_DEFAULTS.cwStopGain };
+  const R = computeMetrics(simulate({ scenario: 'flick', step: 90, duration: 2, mainTorque: false, rf: sym }));
+  const Lm = computeMetrics(simulate({ scenario: 'flick', step: -90, duration: 2, mainTorque: false, rf: sym }));
+  check('Left-turn overshoot measured past −90° (not via the max heading)', L.overshootDeg > 1, `${fmt(L.overshootDeg)}°`);
+  check('No main torque, equal stop gains → left and right overshoot match', Math.abs(R.overshootDeg - Lm.overshootDeg) < 0.05,
+    `${fmt(R.overshootDeg, 3)}° vs ${fmt(Lm.overshootDeg, 3)}°`);
+
+  const base = { ...DEFAULTS, scenario: 'flick', step: 90, flickRate: 360, duration: 1 };
+  const t0 = performance.now();
+  const r = searchGains({ base, start: RF_YAW_DEFAULTS, samples: 60, refineTop: 1, seed: 3 });
+  const ms = performance.now() - t0;
+  const best = r.results[0];
+  check('Search beats Rotorflight stock on the 90° flick', best.detail.J < r.current.detail.J,
+    `score ${fmt(best.detail.J, 3)} vs stock ${fmt(r.current.detail.J, 3)}, ${r.evaluations} sets, ${fmt(ms / 1000, 1)} s`);
+  const nominal = best.detail.cases.filter((c) => c.model === 'nominal');
+  check('Best result settles the flick both ways', nominal.every((c) => c.settle !== null),
+    nominal.map((c) => fmt(c.settle)).join(' / ') + ' s');
+  check('Results stay inside the search ranges', r.results.every((x) => Object.entries(TUNE_RANGES)
+    .every(([k, [lo, hi]]) => x.rf[k] >= lo && x.rf[k] <= hi && Number.isInteger(x.rf[k]))));
+  const again = searchGains({ base, start: RF_YAW_DEFAULTS, samples: 60, refineTop: 1, seed: 3 });
+  check('Same seed → same result', JSON.stringify(again.results[0].rf) === JSON.stringify(best.rf));
+  const locked = searchGains({ base, start: RF_YAW_DEFAULTS, keys: ['ccwStopGain'], samples: 20, refineTop: 1 });
+  check('Unticked gains are left alone', ['P', 'I', 'D', 'F', 'cwStopGain'].every((k) => locked.results[0].rf[k] === RF_YAW_DEFAULTS[k]),
+    `CCW stop ${RF_YAW_DEFAULTS.ccwStopGain} → ${locked.results[0].rf.ccwStopGain}`);
+  check('Effects list the changed gains, biggest first', r.effects.length > 0
+    && r.effects.every((e, i) => i === 0 || e.worseBy <= r.effects[i - 1].worseBy));
+  const piro = createScorer({ ...base, scenario: 'piro', piroRate: 360, piroTime: 1.5 }, { robust: false })(RF_YAW_DEFAULTS, true);
+  check('Piro scoring judges the stop both ways', piro.cases.length === 2 && piro.cases.every((c) => c.stop !== null),
+    piro.cases.map((c) => `${fmt(c.stop)} s`).join(' / '));
 }
 
 console.log(failures ? `\n${failures} check(s) FAILED\n` : '\nAll checks passed\n');
