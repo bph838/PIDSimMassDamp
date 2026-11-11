@@ -39,7 +39,7 @@ const SLIDERS = [
   { key: 'pilotLead', group: 'step', label: 'Let go early', unit: 's', min: 0, max: 0.3, step: 0.01, hint: 'pilot anticipation', show: () => state.scenario === 'flick' },
   { key: 'piroRate', group: 'step', label: 'Piro rate', unit: '°/s', min: -720, max: 720, step: 10, hint: '− = nose left', show: () => state.scenario === 'piro' },
   { key: 'piroTime', group: 'step', label: 'Piro time', unit: 's', min: 0.2, max: 4, step: 0.1, show: () => state.scenario === 'piro' },
-  { key: 'duration', group: 'step', label: 'Duration', unit: 's', min: 1, max: 10, step: 0.5 },
+  { key: 'duration', group: 'step', label: 'Duration', unit: 's', min: 0.5, max: 10, step: 0.25 },
 
   // heli
   // heli model
@@ -129,6 +129,8 @@ export function initControls({ onChange }) {
   const scenarioBtns = [...$('scenario').querySelectorAll('.seg-btn')];
   scenarioBtns.forEach((b) => b.addEventListener('click', () => {
     state.scenario = b.dataset.scenario;
+    // A piro needs room for the stick hold plus the stop; don't cut it off.
+    if (state.scenario === 'piro') state.duration = Math.max(state.duration, Math.ceil(state.piroTime + 1));
     refresh();
     onChange();
   }));

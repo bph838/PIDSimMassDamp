@@ -44,10 +44,12 @@ export function computeMetrics(res) {
     if (t[n - 1] - ts >= SETTLE_HOLD) settlingTime = ts;
   }
 
-  // Steady-state error: setpoint minus mean heading over the last SS_WINDOW.
+  // Steady-state error: setpoint minus mean heading over the last SS_WINDOW
+  // (or the last quarter of a short run, so it doesn't average in the overshoot).
   const tEnd = t[n - 1];
+  const win = Math.min(SS_WINDOW, 0.25 * tEnd);
   let sum = 0, cnt = 0;
-  for (let i = n - 1; i >= i0 && t[i] >= tEnd - SS_WINDOW; i--) { sum += psi[i]; cnt++; }
+  for (let i = n - 1; i >= i0 && t[i] >= tEnd - win; i--) { sum += psi[i]; cnt++; }
   const ssError = S - sum / cnt;
 
   return {

@@ -25,13 +25,13 @@ export const state = {
   rateNoise: 0,
 
   // pilot input
-  step: 90, flickRate: 360, pilotLead: DEFAULTS.pilotLead, piroRate: 360, piroTime: 1.5, duration: 4,
+  step: 90, flickRate: 360, pilotLead: DEFAULTS.pilotLead, piroRate: 360, piroTime: 1.5, duration: 1,
 
   // heli model and signal chain
   ...MODEL_DEFAULTS,
 
   // disturbances
-  mainTorque: true, punch: false, punchTime: 2,
+  mainTorque: true, punch: false, punchTime: 0.5,
 };
 
 /** Read a state value by key; 'rf.P' reads state.rf.P. */
